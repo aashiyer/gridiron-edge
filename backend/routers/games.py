@@ -5,7 +5,7 @@ from typing import Optional
 
 from backend.database import db_session
 from backend.teams import team_meta
-from backend.analysis import cached_recommendation
+from backend.analysis import cached_recommendation, cached_recommendations_batch
 
 router = APIRouter(prefix="/api/games", tags=["games"])
 
@@ -116,14 +116,9 @@ def get_recommendations(season: int, week: int):
             "SELECT game_id FROM games WHERE season = ? AND week = ?", (season, week)
         ).fetchall()
 
-    out = {}
-    missing = []
-    for r in rows:
-        rec = cached_recommendation(r["game_id"], allow_compute=False)
-        if rec:
-            out[r["game_id"]] = rec
-        else:
-            missing.append(r["game_id"])
+    game_ids = [r["game_id"] for r in rows]
+    out = cached_recommendations_batch(game_ids)
+    missing = [g for g in game_ids if g not in out]
     if missing:
         _warm_in_background(missing)
     return out

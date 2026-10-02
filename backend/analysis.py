@@ -528,6 +528,27 @@ def _valid_cached_payload(raw_json: str) -> Optional[dict]:
     return payload
 
 
+def cached_recommendations_batch(game_ids: list) -> dict:
+    """game_id -> cached recommendation, for every id with a valid cache
+    entry, in one query. Same semantics as cached_recommendation with
+    allow_compute=False, without a connection checkout and several round
+    trips per game."""
+    if not game_ids:
+        return {}
+    placeholders = ",".join("?" for _ in game_ids)
+    with db_session() as conn:
+        rows = conn.execute(
+            f"SELECT game_id, payload FROM recommendation_cache WHERE game_id IN ({placeholders})",
+            tuple(game_ids),
+        ).fetchall()
+    out = {}
+    for r in rows:
+        valid = _valid_cached_payload(r["payload"])
+        if valid is not None:
+            out[r["game_id"]] = valid
+    return out
+
+
 def cached_recommendation(game_id: str, allow_compute: bool = True, conn=None) -> Optional[dict]:
     """The recommendation for a game, from `recommendation_cache` when it's
     there and fresh enough, otherwise computed and stored.

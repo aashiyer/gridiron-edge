@@ -1,0 +1,9 @@
+.venv
+__pycache__
+*.pyc
+frontend
+.git
+.env
+data/*.db
+data/*.db-journal
+logs

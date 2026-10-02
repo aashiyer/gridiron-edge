@@ -1,0 +1,126 @@
+@import "tailwindcss";
+
+/* Palette follows shadcn/ui's actual default theme tokens (neutral base,
+   zero-chroma grays converted from their oklch values) with this app's blue
+   kept as the accent/primary — the same "neutral base + a brand color"
+   pattern shadcn's own theme presets use, not a deviation from it.
+   Dark is the default; .light on <html> (see ThemeContext) overrides these.
+   Every page/component references colors through these variables rather
+   than hardcoded Tailwind grays, specifically so a single theme toggle can
+   actually repaint the whole app instead of only the few places anyone
+   remembered to special-case.
+
+   `--card` and `--surface` are both meant to be fully OPAQUE — a card
+   floating above the page background needs real contrast against it, not
+   a low-alpha tint that reads as flat/washed-out at a glance. `--surface`
+   sits one step further from `--bg` than `--card` (a nested "well" inside
+   a card — a hover row, an inset panel — one shade more pronounced than
+   the card it lives in). */
+:root {
+  color-scheme: dark;
+  --radius: 0.75rem;
+
+  --bg: #0a0a0a;
+  --card: #171717;
+  --surface: #1f1f1f;
+  --surface-hover: #272727;
+  --border: rgba(255, 255, 255, 0.1);
+  --input-border: rgba(255, 255, 255, 0.16);
+  --text: #fafafa;
+  --text-muted: #a3a3a3;
+  --text-faint: #737373;
+  --ring: #737373;
+
+  --accent: #4d6bfe;
+  --accent-text: #eef1ff;
+  --destructive: #f87171;
+}
+
+:root.light {
+  color-scheme: light;
+  --bg: #fafafa;
+  --card: #ffffff;
+  --surface: #f5f5f5;
+  --surface-hover: #ececec;
+  --border: #e5e5e5;
+  --input-border: #d4d4d4;
+  --text: #0a0a0a;
+  --text-muted: #5c5c5c;
+  --text-faint: #9a9a9a;
+  --ring: #a3a3a3;
+
+  --accent: #4d6bfe;
+  --accent-text: #ffffff;
+  --destructive: #dc2626;
+}
+
+* {
+  border-color: var(--border);
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Inter", -apple-system, "Segoe UI", Roboto, sans-serif;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+h1,
+h2,
+h3,
+.font-display {
+  font-family: "Space Grotesk", -apple-system, sans-serif;
+}
+
+/* Every text input/select in the app shares this — matches shadcn's Input:
+   opaque surface, real border, a whisper of shadow, and a visible 3px
+   focus ring (not just a border-color swap) so keyboard/tab users can
+   actually see where they are. */
+.input,
+select.input {
+  background: var(--surface);
+  border: 1px solid var(--input-border);
+  border-radius: calc(var(--radius) - 0.25rem);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--text);
+  outline: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.input:hover {
+  border-color: var(--ring);
+}
+.input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.input::placeholder {
+  color: var(--text-faint);
+}
+
+/* Visible keyboard-focus ring on everything else (buttons, links, cards
+   used as buttons) that doesn't go through .input — shadcn applies a
+   focus-visible ring globally; this is the same idea without needing a
+   utility class at every call site. Mouse clicks don't trigger
+   :focus-visible, so this never shows up as a stray outline on a click. */
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: calc(var(--radius) - 0.35rem);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 6px;
+}

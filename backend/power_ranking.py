@@ -48,6 +48,7 @@ Design, one team-game at a time:
      and this system's own inevitable human-bias-like quirks, without
      letting last year's team meaningfully outweigh this year's.
 """
+import math
 import statistics
 
 RECENT_SEASONS = 3
@@ -80,7 +81,7 @@ def _zscore_map(values: dict) -> dict:
     league-wide mean/stdev of the values actually present. A missing value
     (None) stays absent from the result rather than defaulting to 0 (which
     would silently claim "exactly average")."""
-    present = {k: v for k, v in values.items() if v is not None}
+    present = {k: v for k, v in values.items() if v is not None and not math.isnan(v)}
     if len(present) < 2:
         return {k: 0.0 for k in present}
     mean = statistics.mean(present.values())

@@ -122,6 +122,8 @@ def sync_pbp_stats(start_season: int, end_season: int):
                 )
             )
 
+        rows = [tuple(None if isinstance(v, float) and v != v else v for v in row) for row in rows]
+
         conn.executemany(
             """
             INSERT INTO team_stats (

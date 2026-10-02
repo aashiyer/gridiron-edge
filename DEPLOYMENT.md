@@ -47,7 +47,7 @@ injects). From the repo root, with `gcloud` authenticated:
 ```bash
 gcloud run deploy gridiron-edge-api \
   --source . \
-  --region us-central1 \
+  --region us-east5 \
   --allow-unauthenticated \
   --max-instances=2 \
   --env-vars-file=path/to/your/env.yaml

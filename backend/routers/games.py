@@ -139,19 +139,32 @@ def _resolve_power_ranking_week(conn, season: int, week: Optional[int]) -> int:
     return row["w"] if row and row["w"] is not None else 1
 
 
+_POWER_RANKINGS_CACHE: dict = {}
+_POWER_RANKINGS_TTL_SECONDS = 600
+
+
 @router.get("/power-rankings")
 def power_rankings(season: int, week: Optional[int] = None):
     """The full league table for the Gridiron Efficiency Index — see
     backend/power_ranking.py for the methodology."""
+    import time
+
     from backend.power_ranking import gei_power_ranking
 
+    cache_key = (season, week)
+    hit = _POWER_RANKINGS_CACHE.get(cache_key)
+    if hit and time.time() - hit[0] < _POWER_RANKINGS_TTL_SECONDS:
+        return hit[1]
+
     with db_session() as conn:
-        week = _resolve_power_ranking_week(conn, season, week)
-        ratings = gei_power_ranking(conn, season, week)
+        resolved_week = _resolve_power_ranking_week(conn, season, week)
+        ratings = gei_power_ranking(conn, season, resolved_week)
 
     entries = [{"team": team, "gei": d["gei"], "rank": d["rank"]} for team, d in ratings.items()]
     entries.sort(key=lambda e: e["rank"])
-    return {"season": season, "week": week, "entries": entries}
+    result = {"season": season, "week": resolved_week, "entries": entries}
+    _POWER_RANKINGS_CACHE[cache_key] = (time.time(), result)
+    return result
 
 
 @router.get("/power-rankings/{team}")

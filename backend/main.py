@@ -2,6 +2,7 @@ import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 from backend.database import init_db
 from backend.routers import games, picks, dashboard, teams, auth, tick, admin
@@ -10,6 +11,7 @@ app = FastAPI(title="NFL Betting Tracker API")
 
 _extra_origins = [o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()]
 
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://localhost:41827", *_extra_origins],

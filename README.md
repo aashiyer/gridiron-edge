@@ -195,11 +195,3 @@ each one. Two rules worth repeating here:
    reaches the live Edge panel immediately, but the *trained* models stay
    blind to it until retrained (`python -m scripts.train_ats_model`).
 
-## Known gaps
-
-- `ingestion/pbp_stats.py` and `ingestion/ngs_stats.py` have no recurring
-  scheduled job — `team_stats`/`ngs_team_stats` are backfilled for past
-  seasons but nothing currently keeps the *current* season's rows updated
-  week to week. Worth wiring into `ingestion/tick.py`'s `JOBS` and
-  `.github/workflows/cron.yml` if GEI/efficiency signals start looking stale
-  as a season progresses.

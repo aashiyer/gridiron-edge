@@ -15,6 +15,8 @@ Usage:
     python -m ingestion.tick --job depth    # depth charts / injuries (every couple hours)
     python -m ingestion.tick --job weather  # game-day forecasts (every couple hours)
     python -m ingestion.tick --job qb_starters  # recent-season QB usage (every couple hours)
+    python -m ingestion.tick --job pbp_stats    # recent-season EPA/play efficiency stats (every couple hours)
+    python -m ingestion.tick --job ngs_stats    # recent-season NextGen Stats (every couple hours)
 """
 import argparse
 import sys
@@ -77,6 +79,29 @@ def run_qb_starters():
     sync_qb_starters(current_season - 1, current_season)
 
 
+def run_pbp_stats():
+    """Refresh the last two seasons only — same reasoning as
+    run_qb_starters above. Keeps team_stats (EPA/play, success rate,
+    3rd-down%, red-zone%, turnovers) current as the season progresses,
+    which GEI and the recommendation engine both depend on."""
+    from ingestion.pbp_stats import sync_pbp_stats
+
+    now = datetime.now()
+    current_season = now.year - 1 if now.month <= 2 else now.year
+    sync_pbp_stats(current_season - 1, current_season)
+
+
+def run_ngs_stats():
+    """Refresh the last two seasons only — same reasoning as
+    run_qb_starters above. Keeps NextGen Stats (time-to-throw, CPOE,
+    separation, rush efficiency) current as the season progresses."""
+    from ingestion.ngs_stats import sync_ngs_stats
+
+    now = datetime.now()
+    current_season = now.year - 1 if now.month <= 2 else now.year
+    sync_ngs_stats(current_season - 1, current_season)
+
+
 def run_recs():
     """Precompute recommendations for every game that could plausibly be
     looked at soon, so a user's page load is always a cache hit.
@@ -132,6 +157,8 @@ JOBS = {
     "depth": run_depth,
     "weather": run_weather,
     "qb_starters": run_qb_starters,
+    "pbp_stats": run_pbp_stats,
+    "ngs_stats": run_ngs_stats,
     "recs": run_recs,
 }
 

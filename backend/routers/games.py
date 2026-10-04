@@ -70,9 +70,11 @@ def list_games(season: Optional[int] = None, week: Optional[int] = None, team: O
             -- multiple providers report at once.
             SELECT * FROM (
                 SELECT o.*, ROW_NUMBER() OVER (
-                    PARTITION BY game_id ORDER BY captured_at DESC, id DESC
+                    PARTITION BY o.game_id ORDER BY o.captured_at DESC, o.id DESC
                 ) AS rn
                 FROM odds_snapshots o
+                JOIN games gk ON gk.game_id = o.game_id
+                WHERE gk.kickoff_time IS NULL OR o.captured_at <= gk.kickoff_time
             ) ranked WHERE rn = 1
         ) latest ON latest.game_id = g.game_id
         WHERE 1=1

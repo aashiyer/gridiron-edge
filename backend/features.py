@@ -67,7 +67,7 @@ def extract_features(conn, game) -> dict:
     closing_spread = game["home_spread_close"]
     if closing_spread is None:
         latest = conn.execute(
-            "SELECT home_spread FROM odds_snapshots WHERE game_id = ? ORDER BY captured_at DESC LIMIT 1",
+            "SELECT home_spread FROM odds_snapshots WHERE game_id = ? AND captured_at <= COALESCE((SELECT kickoff_time FROM games WHERE game_id = odds_snapshots.game_id), '9999') ORDER BY captured_at DESC LIMIT 1",
             (game["game_id"],),
         ).fetchone()
         closing_spread = (latest["home_spread"] if latest else None) or 0.0
@@ -183,7 +183,7 @@ def extract_total_features(conn, game) -> dict:
     closing_total = game["total_close"]
     if closing_total is None:
         latest = conn.execute(
-            "SELECT total FROM odds_snapshots WHERE game_id = ? ORDER BY captured_at DESC LIMIT 1",
+            "SELECT total FROM odds_snapshots WHERE game_id = ? AND captured_at <= COALESCE((SELECT kickoff_time FROM games WHERE game_id = odds_snapshots.game_id), '9999') ORDER BY captured_at DESC LIMIT 1",
             (game["game_id"],),
         ).fetchone()
         closing_total = (latest["total"] if latest else None) or 44.0

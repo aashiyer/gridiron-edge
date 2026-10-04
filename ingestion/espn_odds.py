@@ -106,9 +106,15 @@ def upsert_game(conn, event: dict):
     home_spread_close = total_close = home_ml_close = away_ml_close = None
     if status == "final":
         latest = conn.execute(
-            "SELECT home_spread, total, home_ml, away_ml FROM odds_snapshots WHERE game_id = ? ORDER BY captured_at DESC LIMIT 1",
-            (event["id"],),
+            """SELECT home_spread, total, home_ml, away_ml FROM odds_snapshots
+               WHERE game_id = ? AND captured_at <= ? ORDER BY captured_at DESC LIMIT 1""",
+            (event["id"], kickoff_time or "9999"),
         ).fetchone()
+        if not latest:
+            latest = conn.execute(
+                "SELECT home_spread, total, home_ml, away_ml FROM odds_snapshots WHERE game_id = ? ORDER BY captured_at DESC LIMIT 1",
+                (event["id"],),
+            ).fetchone()
         if latest:
             home_spread_close, total_close, home_ml_close, away_ml_close = (
                 latest["home_spread"], latest["total"], latest["home_ml"], latest["away_ml"],
@@ -174,20 +180,20 @@ def _poll_events(events: list):
         for event in events:
             game_id, status, kickoff_time = upsert_game(conn, event)
 
-            kickoff_long_past = False
+            started = status != "scheduled"
             if kickoff_time:
                 try:
                     kt = datetime.fromisoformat(kickoff_time.replace("Z", "+00:00"))
-                    kickoff_long_past = (datetime.now(timezone.utc) - kt).total_seconds() > 5.5 * 3600
+                    started = started or kt <= datetime.now(timezone.utc)
                 except ValueError:
                     pass
 
-            if status == "final" or kickoff_long_past:
+            if started:
                 has_snapshot = conn.execute(
                     "SELECT 1 FROM odds_snapshots WHERE game_id = ? LIMIT 1", (game_id,)
                 ).fetchone()
                 if has_snapshot:
-                    print(f"  {game_id} ({status}, kickoff long past={kickoff_long_past}): already have a closing snapshot, skipping")
+                    print(f"  {game_id} ({status}): started, line frozen at last pre-kickoff snapshot, skipping")
                     continue
 
             n = record_odds_snapshot(conn, game_id)

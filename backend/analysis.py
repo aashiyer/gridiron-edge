@@ -511,7 +511,7 @@ def _model_prediction_total(conn, game):
 RECOMMENDATION_CACHE_TTL_MINUTES = 360
 
 
-_RECOMMENDATION_SCHEMA_VERSION = 11
+_RECOMMENDATION_SCHEMA_VERSION = 12
 
 
 def _valid_cached_payload(raw_json: str) -> Optional[dict]:
@@ -620,7 +620,7 @@ def build_recommendation(game_id: str) -> dict:
         total_line = game["total_close"]
         if line is None or total_line is None:
             latest_odds = conn.execute(
-                "SELECT home_spread, total FROM odds_snapshots WHERE game_id = ? ORDER BY captured_at DESC LIMIT 1",
+                "SELECT home_spread, total FROM odds_snapshots WHERE game_id = ? AND captured_at <= COALESCE((SELECT kickoff_time FROM games WHERE game_id = odds_snapshots.game_id), '9999') ORDER BY captured_at DESC LIMIT 1",
                 (game_id,),
             ).fetchone()
             if line is None:

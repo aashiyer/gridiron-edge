@@ -514,6 +514,27 @@ RECOMMENDATION_CACHE_TTL_MINUTES = 360
 _RECOMMENDATION_SCHEMA_VERSION = 12
 
 
+MIN_COMPATIBLE_SCHEMA_VERSION = 7
+
+
+def _usable_cached_payload(raw_json: str):
+    """(payload, is_current) for any cached payload old enough versions still
+    render correctly — a slightly stale analysis shown instantly beats a
+    spinner while the fresh one recomputes. None if unreadable/too old."""
+    import json
+
+    try:
+        payload = json.loads(raw_json)
+    except (ValueError, TypeError):
+        return None
+    version = payload.get("_schema_version")
+    if not isinstance(version, int) or version < MIN_COMPATIBLE_SCHEMA_VERSION:
+        return None
+    payload = dict(payload)
+    payload.pop("_schema_version", None)
+    return payload, version == _RECOMMENDATION_SCHEMA_VERSION
+
+
 def _valid_cached_payload(raw_json: str) -> Optional[dict]:
     import json
 
@@ -548,12 +569,13 @@ def _load_snapshots(conn, game_ids: list) -> dict:
     return out
 
 
-def cached_recommendations_batch(game_ids: list) -> dict:
-    """game_id -> recommendation for every id that has a frozen snapshot
-    (shown as-is, forever, regardless of schema version) or a valid live
-    cache entry, in two queries."""
+def cached_recommendations_batch(game_ids: list):
+    """(recs, stale_ids): game_id -> recommendation for every id with a frozen
+    snapshot or a usable cache entry, in two queries. stale_ids are those
+    served from an older cache version, which the caller should refresh in
+    the background."""
     if not game_ids:
-        return {}
+        return {}, []
     with db_session() as conn:
         out = _load_snapshots(conn, game_ids)
         rest = [g for g in game_ids if g not in out]
@@ -563,11 +585,40 @@ def cached_recommendations_batch(game_ids: list) -> dict:
             rows = conn.execute(
                 f"SELECT game_id, payload FROM recommendation_cache WHERE game_id IN ({ph})", tuple(rest)
             ).fetchall()
+    stale = []
     for r in rows:
-        valid = _valid_cached_payload(r["payload"])
-        if valid is not None:
-            out[r["game_id"]] = valid
-    return out
+        usable = _usable_cached_payload(r["payload"])
+        if usable is None:
+            continue
+        payload, is_current = usable
+        out[r["game_id"]] = payload
+        if not is_current:
+            stale.append(r["game_id"])
+    return out, stale
+
+
+_refreshing: set = set()
+_refreshing_lock = __import__("threading").Lock()
+
+
+def _refresh_async(game_id: str):
+    import threading
+
+    with _refreshing_lock:
+        if game_id in _refreshing:
+            return
+        _refreshing.add(game_id)
+
+    def run():
+        try:
+            refresh_recommendation(game_id)
+        except Exception as e:
+            print(f"background refresh failed for {game_id}: {e}")
+        finally:
+            with _refreshing_lock:
+                _refreshing.discard(game_id)
+
+    threading.Thread(target=run, daemon=True).start()
 
 
 def freeze_recommendation(game_id: str, overwrite: bool = False) -> bool:
@@ -644,10 +695,26 @@ def cached_recommendation(game_id: str, allow_compute: bool = True, conn=None) -
     if not allow_compute:
         return valid
 
+    if valid is None and cached:
+        usable = _usable_cached_payload(cached["payload"])
+        if usable is not None:
+            _refresh_async(game_id)
+            return usable[0]
+
+    return refresh_recommendation(game_id, started=bool(game and game["status"] != "scheduled"))
+
+
+def refresh_recommendation(game_id: str, started: bool = False) -> dict:
+    """Recompute and store a game's recommendation in the live cache,
+    ignoring whatever is cached now (and freezing a permanent snapshot if the
+    game has already started)."""
+    import json
+    from datetime import datetime, timezone
+
     result = build_recommendation(game_id)
-    if result and not result.get("error") and game and game["status"] != "scheduled":
-        freeze_recommendation(game_id)
     if result and not result.get("error"):
+        if started:
+            freeze_recommendation(game_id)
         stored = dict(result)
         stored["_schema_version"] = _RECOMMENDATION_SCHEMA_VERSION
         with db_session() as conn:

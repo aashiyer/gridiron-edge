@@ -5,7 +5,7 @@ from typing import Optional
 
 from backend.database import db_session
 from backend.teams import team_meta
-from backend.analysis import cached_recommendation, cached_recommendations_batch
+from backend.analysis import cached_recommendation, cached_recommendations_batch, refresh_recommendation
 
 router = APIRouter(prefix="/api/games", tags=["games"])
 
@@ -33,7 +33,7 @@ def _warm_in_background(game_ids: list):
         try:
             for game_id in todo:
                 try:
-                    cached_recommendation(game_id)
+                    refresh_recommendation(game_id)
                 except Exception as e:
                     print(f"background recommendation warm failed for {game_id}: {e}")
         finally:
@@ -119,10 +119,10 @@ def get_recommendations(season: int, week: int):
         ).fetchall()
 
     game_ids = [r["game_id"] for r in rows]
-    out = cached_recommendations_batch(game_ids)
-    missing = [g for g in game_ids if g not in out]
-    if missing:
-        _warm_in_background(missing)
+    out, stale = cached_recommendations_batch(game_ids)
+    to_warm = [g for g in game_ids if g not in out] + stale
+    if to_warm:
+        _warm_in_background(to_warm)
     return out
 
 

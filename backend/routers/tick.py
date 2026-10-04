@@ -26,7 +26,7 @@ def _run_job(name: str, fn):
 
 
 @router.post("/{job}")
-def run_tick(job: str, response: Response, x_cron_secret: str = Header(default=None)):
+def run_tick(job: str, response: Response, wait: bool = False, x_cron_secret: str = Header(default=None)):
     if not CRON_SECRET:
         raise HTTPException(status_code=503, detail="CRON_SECRET not configured on this deployment")
     if x_cron_secret != CRON_SECRET:
@@ -36,6 +36,13 @@ def run_tick(job: str, response: Response, x_cron_secret: str = Header(default=N
 
     if job not in JOBS:
         raise HTTPException(status_code=404, detail=f"unknown job '{job}', expected one of {list(JOBS)}")
+
+    if wait:
+        import time
+
+        started = time.time()
+        _run_job(job, JOBS[job])
+        return {"job": job, "status": "finished", "seconds": round(time.time() - started, 1)}
 
     threading.Thread(target=_run_job, args=(job, JOBS[job]), daemon=True).start()
     response.status_code = 202

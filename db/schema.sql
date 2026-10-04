@@ -247,3 +247,9 @@ CREATE TABLE IF NOT EXISTS qb_baseline (
     player_name  TEXT NOT NULL,
     updated_at   TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS recommendation_snapshots (
+    game_id    TEXT PRIMARY KEY,
+    payload    TEXT NOT NULL,
+    frozen_at  TEXT NOT NULL
+);

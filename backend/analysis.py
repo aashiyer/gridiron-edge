@@ -528,25 +528,71 @@ def _valid_cached_payload(raw_json: str) -> Optional[dict]:
     return payload
 
 
-def cached_recommendations_batch(game_ids: list) -> dict:
-    """game_id -> cached recommendation, for every id with a valid cache
-    entry, in one query. Same semantics as cached_recommendation with
-    allow_compute=False, without a connection checkout and several round
-    trips per game."""
+def _load_snapshots(conn, game_ids: list) -> dict:
+    import json
+
     if not game_ids:
         return {}
     placeholders = ",".join("?" for _ in game_ids)
-    with db_session() as conn:
-        rows = conn.execute(
-            f"SELECT game_id, payload FROM recommendation_cache WHERE game_id IN ({placeholders})",
-            tuple(game_ids),
-        ).fetchall()
+    rows = conn.execute(
+        f"SELECT game_id, payload FROM recommendation_snapshots WHERE game_id IN ({placeholders})", tuple(game_ids)
+    ).fetchall()
     out = {}
+    for r in rows:
+        try:
+            payload = json.loads(r["payload"])
+        except (ValueError, TypeError):
+            continue
+        payload.pop("_schema_version", None)
+        out[r["game_id"]] = payload
+    return out
+
+
+def cached_recommendations_batch(game_ids: list) -> dict:
+    """game_id -> recommendation for every id that has a frozen snapshot
+    (shown as-is, forever, regardless of schema version) or a valid live
+    cache entry, in two queries."""
+    if not game_ids:
+        return {}
+    with db_session() as conn:
+        out = _load_snapshots(conn, game_ids)
+        rest = [g for g in game_ids if g not in out]
+        rows = []
+        if rest:
+            ph = ",".join("?" for _ in rest)
+            rows = conn.execute(
+                f"SELECT game_id, payload FROM recommendation_cache WHERE game_id IN ({ph})", tuple(rest)
+            ).fetchall()
     for r in rows:
         valid = _valid_cached_payload(r["payload"])
         if valid is not None:
             out[r["game_id"]] = valid
     return out
+
+
+def freeze_recommendation(game_id: str, overwrite: bool = False) -> bool:
+    """Build this game's recommendation and save it as its permanent
+    snapshot. Called automatically ~an hour before kickoff (and for any
+    already-started game that lacks one), so by game time the analysis is
+    just a stored read — and stays exactly as it was at kickoff."""
+    import json
+    from datetime import datetime, timezone
+
+    with db_session() as conn:
+        if not overwrite and conn.execute(
+            "SELECT 1 FROM recommendation_snapshots WHERE game_id = ?", (game_id,)
+        ).fetchone():
+            return False
+    result = build_recommendation(game_id)
+    if not result or result.get("error"):
+        return False
+    with db_session() as conn:
+        conn.execute(
+            """INSERT INTO recommendation_snapshots (game_id, payload, frozen_at) VALUES (?, ?, ?)
+               ON CONFLICT(game_id) DO UPDATE SET payload = excluded.payload, frozen_at = excluded.frozen_at""",
+            (game_id, json.dumps(result), datetime.now(timezone.utc).isoformat()),
+        )
+    return True
 
 
 def cached_recommendation(game_id: str, allow_compute: bool = True, conn=None) -> Optional[dict]:
@@ -575,6 +621,9 @@ def cached_recommendation(game_id: str, allow_compute: bool = True, conn=None) -
     from datetime import datetime, timedelta, timezone
 
     with (nullcontext(conn) if conn is not None else db_session()) as c:
+        snap = _load_snapshots(c, [game_id]).get(game_id)
+        if snap is not None:
+            return snap
         game = c.execute("SELECT status FROM games WHERE game_id = ?", (game_id,)).fetchone()
         cached = c.execute(
             "SELECT payload, generated_at FROM recommendation_cache WHERE game_id = ?", (game_id,)
@@ -596,6 +645,8 @@ def cached_recommendation(game_id: str, allow_compute: bool = True, conn=None) -
         return valid
 
     result = build_recommendation(game_id)
+    if result and not result.get("error") and game and game["status"] != "scheduled":
+        freeze_recommendation(game_id)
     if result and not result.get("error"):
         stored = dict(result)
         stored["_schema_version"] = _RECOMMENDATION_SCHEMA_VERSION

@@ -38,6 +38,36 @@ def _refresh_qb_baselines():
         refresh_qb_baselines(conn, season)
 
 
+def snapshot_games(limit: int = 25):
+    """Freeze the recommendation for every game that kicks off within the
+    next 75 minutes (or has already started) and doesn't have a snapshot
+    yet, so game-time analysis is a stored read instead of a recompute."""
+    from datetime import timedelta, timezone
+
+    from backend.analysis import freeze_recommendation
+    from backend.database import db_session
+
+    cutoff = (datetime.now(timezone.utc) + timedelta(minutes=75)).strftime("%Y-%m-%dT%H:%MZ")
+    now = datetime.now()
+    season = now.year - 1 if now.month <= 2 else now.year
+    with db_session() as conn:
+        rows = conn.execute(
+            """SELECT g.game_id FROM games g
+               WHERE g.season = ? AND (g.status != 'scheduled' OR g.kickoff_time <= ?)
+                 AND NOT EXISTS (SELECT 1 FROM recommendation_snapshots s WHERE s.game_id = g.game_id)
+               ORDER BY g.kickoff_time DESC LIMIT ?""",
+            (season, cutoff, limit),
+        ).fetchall()
+    frozen = 0
+    for r in rows:
+        try:
+            if freeze_recommendation(r["game_id"]):
+                frozen += 1
+        except Exception as e:
+            print(f"  {r['game_id']}: snapshot failed ({e})")
+    print(f"Froze {frozen} recommendation snapshot(s).")
+
+
 def run_odds():
     from ingestion.espn_odds import poll_once
 
@@ -47,6 +77,7 @@ def run_odds():
     result = grade_pending_picks()
     if result["count"]:
         print(f"Auto-graded {result['count']} pick(s).")
+    snapshot_games()
 
 
 def run_season():
@@ -172,6 +203,7 @@ JOBS = {
     "pbp_stats": run_pbp_stats,
     "ngs_stats": run_ngs_stats,
     "recs": run_recs,
+    "snapshots": lambda: snapshot_games(limit=500),
 }
 
 if __name__ == "__main__":

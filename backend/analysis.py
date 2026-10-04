@@ -61,9 +61,37 @@ from typing import Optional
 
 from backend.database import db_session
 
+import time as _time
+
+_TTL_CACHES: dict = {}
+
+
+def _ttl_memo(name: str, ttl_seconds: int):
+    """Memoize a function of (conn, *args) on its args alone, for a short
+    TTL. Used for read-only lookups a single recommendation (and a whole
+    week's batch of them) repeats many times with identical arguments."""
+
+    def deco(fn):
+        cache = _TTL_CACHES.setdefault(name, {})
+
+        def wrapper(conn, *args):
+            hit = cache.get(args)
+            if hit and _time.time() - hit[0] < ttl_seconds:
+                return hit[1]
+            value = fn(conn, *args)
+            cache[args] = (_time.time(), value)
+            return value
+
+        wrapper.__name__ = fn.__name__
+        return wrapper
+
+    return deco
+
+
 RECENT_N = 8
 
 
+@_ttl_memo("team_games", 600)
 def _team_games(conn, team: str, before_kickoff: str, limit: int = RECENT_N):
     rows = conn.execute(
         """

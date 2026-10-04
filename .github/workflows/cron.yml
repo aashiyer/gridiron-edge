@@ -21,9 +21,6 @@ on:
                              # before recs so recs reads fresh temp/wind)
     - cron: "15 */2 * * *"   # recent-season QB usage (offset 15min, before
                              # recs so recs reads fresh career-start counts)
-    - cron: "20 */2 * * *"   # precompute recommendations (offset 20min so it
-                             # runs *after* the depth-chart/weather/qb_starters
-                             # refreshes it reads)
   workflow_dispatch:
     inputs:
       job:
@@ -54,7 +51,6 @@ jobs:
             "8 */2 * * *") echo "name=ngs_stats" >> "$GITHUB_OUTPUT" ;;
             "10 */2 * * *") echo "name=weather" >> "$GITHUB_OUTPUT" ;;
             "15 */2 * * *") echo "name=qb_starters" >> "$GITHUB_OUTPUT" ;;
-            "20 */2 * * *") echo "name=recs" >> "$GITHUB_OUTPUT" ;;
           esac
       - name: Require Postgres secret
         run: |

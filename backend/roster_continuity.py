@@ -13,7 +13,22 @@ from functools import lru_cache
 MIN_WEIGHT = 0.15
 
 
+_ROSTER_CACHE: dict = {}
+_ROSTER_TTL_SECONDS = 3600
+
+
 def _roster_set(conn, team: str, season: int) -> frozenset:
+    import time
+
+    hit = _ROSTER_CACHE.get((team, season))
+    if hit and time.time() - hit[0] < _ROSTER_TTL_SECONDS:
+        return hit[1]
+    value = _load_roster_set(conn, team, season)
+    _ROSTER_CACHE[(team, season)] = (time.time(), value)
+    return value
+
+
+def _load_roster_set(conn, team: str, season: int) -> frozenset:
     rows = conn.execute("SELECT player_id FROM rosters WHERE team = ? AND season = ?", (team, season)).fetchall()
     return frozenset(r["player_id"] for r in rows)
 

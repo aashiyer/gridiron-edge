@@ -127,8 +127,10 @@ def refresh_qb_baselines(conn, season: int):
     season-ending injury is remembered after the backup has started enough
     games to look like the usual starter. A baseline only changes when the
     baseline QB is healthy but benched or gone — never while the depth chart
-    lists him out. Initialized from this season's QB with the most starts,
-    preferring a QB with 2+ starts who is currently out."""
+    lists him out. Initialized from the QB with the most starts over the last 10 games
+    (spanning the season boundary, so a starter who got hurt early this
+    season is still recognized), preferring a QB with 2+ of those starts
+    who is currently out."""
     from datetime import datetime, timezone
 
     from backend.injuries import OUT_ABBRS
@@ -137,9 +139,11 @@ def refresh_qb_baselines(conn, season: int):
     teams = [r["team"] for r in conn.execute("SELECT DISTINCT team FROM qb_starters WHERE season = ?", (season,)).fetchall()]
     for team in teams:
         starts = conn.execute(
-            "SELECT week, player_name FROM qb_starters WHERE team = ? AND season = ? ORDER BY week", (team, season)
-        ).fetchall()
-        if not starts:
+            """SELECT season, week, player_name FROM qb_starters
+               WHERE team = ? AND season >= ? ORDER BY season DESC, week DESC LIMIT 10""",
+            (team, season - 1),
+        ).fetchall()[::-1]
+        if not starts or starts[-1]["season"] != season:
             continue
         counts: dict = {}
         names: dict = {}

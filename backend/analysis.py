@@ -528,6 +528,8 @@ def _usable_cached_payload(raw_json: str):
     except (ValueError, TypeError):
         return None
     version = payload.get("_schema_version")
+    if version is None:
+        version = MIN_COMPATIBLE_SCHEMA_VERSION
     if not isinstance(version, int) or version < MIN_COMPATIBLE_SCHEMA_VERSION:
         return None
     payload = dict(payload)

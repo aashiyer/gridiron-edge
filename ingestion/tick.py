@@ -154,9 +154,7 @@ def run_recs():
     connection pool for everything else, including pick saves. Doing it here
     — off-request, one at a time — keeps that cost entirely off the path
     anyone actually waits on."""
-    from datetime import timezone
-
-    from backend.analysis import build_recommendation
+    from backend.analysis import refresh_recommendation
     from backend.database import db_session
 
     now = datetime.now()
@@ -170,22 +168,14 @@ def run_recs():
             (season,),
         ).fetchall()
 
-    import json
-
     ok = failed = 0
     for r in rows:
         game_id = r["game_id"]
         try:
-            result = build_recommendation(game_id)
+            result = refresh_recommendation(game_id)
             if not result or result.get("error"):
                 failed += 1
                 continue
-            with db_session() as conn:
-                conn.execute(
-                    """INSERT INTO recommendation_cache (game_id, payload, generated_at) VALUES (?, ?, ?)
-                       ON CONFLICT(game_id) DO UPDATE SET payload = excluded.payload, generated_at = excluded.generated_at""",
-                    (game_id, json.dumps(result), datetime.now(timezone.utc).isoformat()),
-                )
             ok += 1
         except Exception as e:
             failed += 1

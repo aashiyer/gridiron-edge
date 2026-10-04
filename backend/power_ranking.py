@@ -229,7 +229,26 @@ def _composite_margins(rows: list) -> dict:
     return composite
 
 
+_RATINGS_CACHE: dict = {}
+_RATINGS_TTL_SECONDS = 900
+
+
 def opponent_adjusted_power_ratings(conn, season: int, through_week: int, iterations: int = 10) -> dict:
+    """Memoized for 15 minutes: every game in a week asks for the same
+    (season, week) ratings plus the same three prior seasons, and recomputing
+    all of that per game is the dominant cost of building a recommendation."""
+    import time
+
+    key = (season, through_week, iterations)
+    hit = _RATINGS_CACHE.get(key)
+    if hit and time.time() - hit[0] < _RATINGS_TTL_SECONDS:
+        return hit[1]
+    result = _opponent_adjusted_power_ratings(conn, season, through_week, iterations)
+    _RATINGS_CACHE[key] = (time.time(), result)
+    return result
+
+
+def _opponent_adjusted_power_ratings(conn, season: int, through_week: int, iterations: int = 10) -> dict:
     """team -> opponent-adjusted composite rating (roughly z-score scaled:
     0 is league-average, positive is above), or None for a team with no
     usable data yet this season. This is GEI's core, single-season number —

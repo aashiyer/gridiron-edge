@@ -240,3 +240,10 @@ CREATE INDEX IF NOT EXISTS idx_picks_game ON picks(game_id);
 -- part of the plain executescript would fail outright and break init_db()
 -- for every future run. _migrate() dedupes first, then creates it.
 CREATE INDEX IF NOT EXISTS idx_picks_result ON picks(result);
+
+CREATE TABLE IF NOT EXISTS qb_baseline (
+    team         TEXT PRIMARY KEY,
+    season       INTEGER NOT NULL,
+    player_name  TEXT NOT NULL,
+    updated_at   TEXT NOT NULL
+);

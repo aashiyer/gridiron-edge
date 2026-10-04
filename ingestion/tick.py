@@ -28,6 +28,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from backend.database import init_db
 
 
+def _refresh_qb_baselines():
+    from backend.database import db_session
+    from backend.historical_injury_signal import refresh_qb_baselines
+
+    now = datetime.now()
+    season = now.year - 1 if now.month <= 2 else now.year
+    with db_session() as conn:
+        refresh_qb_baselines(conn, season)
+
+
 def run_odds():
     from ingestion.espn_odds import poll_once
 
@@ -57,6 +67,7 @@ def run_depth():
     from ingestion.depth_chart import sync_depth_charts
 
     sync_depth_charts()
+    _refresh_qb_baselines()
 
 
 def run_weather():
@@ -77,6 +88,7 @@ def run_qb_starters():
     now = datetime.now()
     current_season = now.year - 1 if now.month <= 2 else now.year
     sync_qb_starters(current_season - 1, current_season)
+    _refresh_qb_baselines()
 
 
 def run_pbp_stats():

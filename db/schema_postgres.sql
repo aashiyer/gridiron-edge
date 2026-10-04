@@ -218,3 +218,10 @@ CREATE INDEX IF NOT EXISTS idx_picks_result ON picks(result);
 -- copy from Turso (ingestion/migrate_to_postgres.py) also dedupes its
 -- source rows before insert, so this holds from the first row in.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_picks_unique_market ON picks(user_id, game_id, pick_type);
+
+CREATE TABLE IF NOT EXISTS qb_baseline (
+    team         TEXT PRIMARY KEY,
+    season       INTEGER NOT NULL,
+    player_name  TEXT NOT NULL,
+    updated_at   TEXT NOT NULL
+);

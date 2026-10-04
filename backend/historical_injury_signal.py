@@ -120,3 +120,95 @@ def recent_injury_load(conn, team: str, season: int, before_week: int):
     avg_out = sum(r["impact_out_count"] for r in rows) / len(rows)
     any_qb_out = max(r["qb_listed_out"] for r in rows)
     return {"avg_impact_out": round(avg_out, 2), "recent_qb_out": any_qb_out}
+
+
+def refresh_qb_baselines(conn, season: int):
+    """Persist each team's baseline ("original") starting QB so a
+    season-ending injury is remembered after the backup has started enough
+    games to look like the usual starter. A baseline only changes when the
+    baseline QB is healthy but benched or gone — never while the depth chart
+    lists him out. Initialized from this season's QB with the most starts,
+    preferring a QB with 2+ starts who is currently out."""
+    from datetime import datetime, timezone
+
+    from backend.injuries import OUT_ABBRS
+
+    now = datetime.now(timezone.utc).isoformat()
+    teams = [r["team"] for r in conn.execute("SELECT DISTINCT team FROM qb_starters WHERE season = ?", (season,)).fetchall()]
+    for team in teams:
+        starts = conn.execute(
+            "SELECT week, player_name FROM qb_starters WHERE team = ? AND season = ? ORDER BY week", (team, season)
+        ).fetchall()
+        if not starts:
+            continue
+        counts: dict = {}
+        names: dict = {}
+        for r in starts:
+            k = _normalize_name(r["player_name"])
+            counts[k] = counts.get(k, 0) + 1
+            names[k] = r["player_name"]
+        out_keys = {
+            _normalize_name(r["player_name"])
+            for r in conn.execute(
+                "SELECT player_name, injury_status FROM depth_chart WHERE team = ? AND position = 'QB'", (team,)
+            ).fetchall()
+            if r["injury_status"] in OUT_ABBRS
+        }
+        current = conn.execute("SELECT player_name FROM qb_baseline WHERE team = ?", (team,)).fetchone()
+        current_key = _normalize_name(current["player_name"]) if current else None
+
+        if current_key is None:
+            injured = [k for k in counts if counts[k] >= 2 and k in out_keys]
+            pool = injured or list(counts)
+            new_key = max(pool, key=lambda k: counts[k])
+        else:
+            last_two = [_normalize_name(r["player_name"]) for r in starts[-2:]]
+            new_key = current_key
+            if len(last_two) == 2 and last_two[0] == last_two[1] and last_two[0] != current_key and current_key not in out_keys:
+                new_key = last_two[0]
+        if new_key != current_key:
+            conn.execute(
+                """INSERT INTO qb_baseline (team, season, player_name, updated_at) VALUES (?, ?, ?, ?)
+                   ON CONFLICT (team) DO UPDATE SET season = excluded.season, player_name = excluded.player_name,
+                   updated_at = excluded.updated_at""",
+                (team, season, names[new_key], now),
+            )
+
+
+def qb_starter_lost(conn, team: str, season: int, week: int, qb_info: dict):
+    """The team's baseline starter (qb_baseline, falling back to the
+    leading passer of the last 3 games) when the live depth chart shows him
+    out — even after ESPN has promoted a healthy backup to QB1, which makes
+    the depth-chart-only check in backend/injuries.py go quiet. Returns
+    {"established", "status", "replacement"} or None."""
+    from backend.injuries import OUT_ABBRS
+
+    row = conn.execute("SELECT player_name FROM qb_baseline WHERE team = ?", (team,)).fetchone()
+    if row:
+        established_key = _normalize_name(row["player_name"])
+    else:
+        rows = conn.execute(
+            """
+            SELECT player_name FROM qb_starters
+            WHERE team = ? AND (season < ? OR (season = ? AND week < ?))
+            ORDER BY season DESC, week DESC LIMIT ?
+            """,
+            (team, season, season, week, 3),
+        ).fetchall()
+        if len(rows) < 2:
+            return None
+        counts: dict = {}
+        for r in rows:
+            key = _normalize_name(r["player_name"])
+            counts[key] = counts.get(key, 0) + 1
+        established_key, n = max(counts.items(), key=lambda kv: kv[1])
+        if n < 2:
+            return None
+
+    likely = qb_info.get("likely_starter")
+    if not likely or _normalize_name(likely["player_name"]) == established_key:
+        return None
+    for p in qb_info.get("depth", []):
+        if _normalize_name(p["player_name"]) == established_key and p["injury_status"] in OUT_ABBRS:
+            return {"established": p["player_name"], "status": p["injury_status"], "replacement": likely["player_name"]}
+    return None

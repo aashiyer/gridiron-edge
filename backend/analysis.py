@@ -511,7 +511,7 @@ def _model_prediction_total(conn, game):
 RECOMMENDATION_CACHE_TTL_MINUTES = 360
 
 
-_RECOMMENDATION_SCHEMA_VERSION = 10
+_RECOMMENDATION_SCHEMA_VERSION = 11
 
 
 def _valid_cached_payload(raw_json: str) -> Optional[dict]:
@@ -678,7 +678,12 @@ def build_recommendation(game_id: str) -> dict:
         home_starters_out = starters_out(conn, home)
         away_starters_out = starters_out(conn, away)
 
-        from backend.historical_injury_signal import resolve_qb_player_id_by_name, qb_career_starts
+        from backend.historical_injury_signal import resolve_qb_player_id_by_name, qb_career_starts, qb_starter_lost
+
+        qb_lost = {
+            "home": qb_starter_lost(conn, home, current_season, game["week"], home_qb),
+            "away": qb_starter_lost(conn, away, current_season, game["week"], away_qb),
+        }
 
         def _likely_starter_career_starts(qb_info):
             likely = qb_info["likely_starter"]
@@ -766,6 +771,17 @@ def build_recommendation(game_id: str) -> dict:
                 score_su[side] -= 5.0
                 score_ats[side] -= 2.5
                 _add(f"{label} has no healthy QB on the depth chart right now.", su=5.0, ats=2.5, highlight=True)
+        elif qb_lost[side]:
+            lost = qb_lost[side]
+            penalty = 1.6
+            score_su[side] -= penalty
+            score_ats[side] -= penalty * 0.55
+            _add(
+                f"{label}'s usual starter {lost['established']} is out ({lost['status']}) — "
+                f"{lost['replacement']} is now QB1, a real step down from the QB this team's recent results and "
+                f"efficiency stats were built on.",
+                su=penalty, ats=penalty * 0.55, highlight=True,
+            )
         elif qb["starter_questionable"] and qb["starter"]:
             _add(f"{label} starting QB {qb['starter']['player_name']} is questionable.", su=0.3)
 

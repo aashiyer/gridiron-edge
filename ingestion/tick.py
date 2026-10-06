@@ -20,7 +20,7 @@ Usage:
 """
 import argparse
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -145,7 +145,7 @@ def run_ngs_stats():
     sync_ngs_stats(current_season - 1, current_season)
 
 
-def run_recs():
+def run_recs(days=7):
     """Precompute recommendations for every game that could plausibly be
     looked at soon, so a user's page load is always a cache hit.
 
@@ -159,13 +159,14 @@ def run_recs():
 
     now = datetime.now()
     season = now.year - 1 if now.month <= 2 else now.year
+    horizon = (datetime.utcnow() + timedelta(days=days)).strftime("%Y-%m-%dT%H:%MZ") if days else "9999"
 
     with db_session() as conn:
         rows = conn.execute(
             """SELECT game_id FROM games
-               WHERE season = ? AND status = 'scheduled'
+               WHERE season = ? AND status = 'scheduled' AND (kickoff_time IS NULL OR kickoff_time <= ?)
                ORDER BY kickoff_time ASC""",
-            (season,),
+            (season, horizon),
         ).fetchall()
 
     ok = failed = 0
@@ -193,6 +194,7 @@ JOBS = {
     "pbp_stats": run_pbp_stats,
     "ngs_stats": run_ngs_stats,
     "recs": run_recs,
+    "recs_all": lambda: run_recs(days=None),
     "snapshots": lambda: snapshot_games(limit=500),
 }
 

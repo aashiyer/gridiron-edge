@@ -11,6 +11,8 @@ ever actually played meaningful snaps before.
 import math
 import re
 
+from backend.ttl_cache import ttl_memo
+
 RECENT_N = 4
 
 _SUFFIX_RE = re.compile(r"\s+(jr\.?|sr\.?|ii|iii|iv)$", re.IGNORECASE)
@@ -84,6 +86,11 @@ def qb_experience_for_game(conn, team: str, season: int, week: int) -> float:
     return math.log1p(min(starts, 40))
 
 
+@ttl_memo("qb_players", 3600)
+def _qb_players(conn):
+    return conn.execute("SELECT DISTINCT player_id, player_name FROM qb_starters").fetchall()
+
+
 def resolve_qb_player_id_by_name(conn, player_name: str) -> str | None:
     """Best-effort match from a depth-chart player name (ESPN, scraped live
     for the current week) to the nflverse player_id qb_starters is keyed by
@@ -99,8 +106,7 @@ def resolve_qb_player_id_by_name(conn, player_name: str) -> str | None:
     if not player_name:
         return None
     target = _normalize_name(player_name)
-    rows = conn.execute("SELECT DISTINCT player_id, player_name FROM qb_starters").fetchall()
-    for r in rows:
+    for r in _qb_players(conn):
         if _normalize_name(r["player_name"]) == target:
             return r["player_id"]
     return None

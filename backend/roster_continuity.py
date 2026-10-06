@@ -8,29 +8,25 @@ Deliberately simple: player_id set overlap on ACT roster entries, no snap-
 count or positional weighting. Good enough to separate "this team is
 basically the same team as 3 years ago" from "this team has been rebuilt."
 """
-from functools import lru_cache
+from backend.ttl_cache import ttl_memo
 
 MIN_WEIGHT = 0.15
 
 
-_ROSTER_CACHE: dict = {}
-_ROSTER_TTL_SECONDS = 3600
-
-
-def _roster_set(conn, team: str, season: int) -> frozenset:
-    import time
-
-    hit = _ROSTER_CACHE.get((team, season))
-    if hit and time.time() - hit[0] < _ROSTER_TTL_SECONDS:
-        return hit[1]
-    value = _load_roster_set(conn, team, season)
-    _ROSTER_CACHE[(team, season)] = (time.time(), value)
-    return value
-
-
-def _load_roster_set(conn, team: str, season: int) -> frozenset:
-    rows = conn.execute("SELECT player_id FROM rosters WHERE team = ? AND season = ?", (team, season)).fetchall()
-    return frozenset(r["player_id"] for r in rows)
+@ttl_memo("roster_overlap", 3600)
+def _overlap_counts(conn, team: str, current_season: int, past_season: int):
+    row = conn.execute(
+        """
+        SELECT
+          (SELECT COUNT(DISTINCT player_id) FROM rosters WHERE team = ? AND season = ?) AS current_n,
+          (SELECT COUNT(DISTINCT player_id) FROM rosters WHERE team = ? AND season = ?) AS past_n,
+          (SELECT COUNT(DISTINCT a.player_id) FROM rosters a
+             JOIN rosters b ON a.player_id = b.player_id AND b.team = ? AND b.season = ?
+             WHERE a.team = ? AND a.season = ?) AS both_n
+        """,
+        (team, current_season, team, past_season, team, past_season, team, current_season),
+    ).fetchone()
+    return row["current_n"], row["past_n"], row["both_n"]
 
 
 def continuity_weight(conn, team: str, current_season: int, past_season: int) -> float:
@@ -39,12 +35,10 @@ def continuity_weight(conn, team: str, current_season: int, past_season: int) ->
     isn't available for either season (rather than silently zeroing it out)."""
     if past_season >= current_season:
         return 1.0
-    current_roster = _roster_set(conn, team, current_season)
-    past_roster = _roster_set(conn, team, past_season)
-    if not current_roster or not past_roster:
+    current_n, past_n, both_n = _overlap_counts(conn, team, current_season, past_season)
+    if not current_n or not past_n:
         return 0.75
-    overlap = len(current_roster & past_roster) / len(current_roster)
-    return max(MIN_WEIGHT, min(1.0, overlap))
+    return max(MIN_WEIGHT, min(1.0, both_n / current_n))
 
 
 def continuity_weights_for_seasons(conn, team: str, current_season: int, seasons: set) -> dict:

@@ -89,3 +89,20 @@ workflow → pick a job from the dropdown.
 
 Send them the Vercel URL. Each person signs up with their own email/password
 on `/login`; picks and records are private per account.
+
+## Database egress budget (Supabase free tier: 5 GB/month)
+
+Egress, not storage, is the limit that matters (the database is ~25 MB of
+500 MB). Recommendation refreshes are the main reader, so they are scheduled
+conservatively with Cloud Scheduler (us-central1, project gridiron-edge-473921):
+
+| Job | Schedule | Scope |
+| --- | --- | --- |
+| `gridiron-recs` | hourly at :05 | scheduled games kicking off within 7 days (`recs`) |
+| `gridiron-recs-all` | daily 09:30 UTC | every scheduled game this season (`recs_all`) |
+| `gridiron-keepwarm` | every 5 min | `/api/health`, never touches the database |
+
+Repeated lookups inside a refresh are memoized in `backend/ttl_cache.py`;
+roster overlap is computed in SQL. Check usage with `pg_stat_statements`
+(`select sum(rows) from pg_stat_statements`) — an hourly refresh should read
+roughly 10k rows.

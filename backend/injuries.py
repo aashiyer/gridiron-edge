@@ -4,12 +4,15 @@ highest-leverage position; `starters_out` gives the general "who's missing
 from the starting lineup" list for everything else.
 """
 
+from backend.ttl_cache import ttl_memo
+
 OUT_ABBRS = {"O", "IR", "PUP", "SUS", "D/NE"}
 QUESTIONABLE_ABBRS = {"Q", "D"}
 
 EXCLUDED_POSITIONS = {"PK", "P", "H", "LS", "PR", "KR"}
 
 
+@ttl_memo("qb_availability", 300)
 def qb_availability(conn, team: str) -> dict:
     """QB1/QB2/... in true depth order, with injury status. `starter_out` is
     True only if the actual QB1 (not just *a* QB) is out."""
@@ -31,6 +34,7 @@ def qb_availability(conn, team: str) -> dict:
     }
 
 
+@ttl_memo("starters_out", 300)
 def starters_out(conn, team: str) -> list[dict]:
     """Depth-chart starters (depth_rank == 1) currently out, excluding
     special-teams slots."""

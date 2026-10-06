@@ -27,7 +27,7 @@ on:
         description: "Job to run manually"
         required: true
         type: choice
-        options: [odds, season, fpi, depth, weather, qb_starters, pbp_stats, ngs_stats, recs, snapshots]
+        options: [odds, season, fpi, depth, weather, qb_starters, pbp_stats, ngs_stats, recs, recs_all, snapshots]
 
 jobs:
   tick:

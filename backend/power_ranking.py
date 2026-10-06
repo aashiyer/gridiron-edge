@@ -51,6 +51,8 @@ Design, one team-game at a time:
 import math
 import statistics
 
+from backend.ttl_cache import ttl_memo
+
 RECENT_SEASONS = 3
 
 W_EPA = 0.55
@@ -307,6 +309,7 @@ def _opponent_adjusted_power_ratings(conn, season: int, through_week: int, itera
     return {team: (rating if has_data[team] else None) for team, rating in ratings.items()}
 
 
+@ttl_memo("qb_zscores", 600)
 def _qb_zscores(conn, season: int, through_week: int) -> dict:
     """team -> z-score of its current starter's EPA/dropback (the most
     recent qb_starters row through this point), league-wide. A team with no

@@ -61,51 +61,39 @@ from typing import Optional
 
 from backend.database import db_session
 
-import time as _time
-
-_TTL_CACHES: dict = {}
-
-
-def _ttl_memo(name: str, ttl_seconds: int):
-    """Memoize a function of (conn, *args) on its args alone, for a short
-    TTL. Used for read-only lookups a single recommendation (and a whole
-    week's batch of them) repeats many times with identical arguments."""
-
-    def deco(fn):
-        cache = _TTL_CACHES.setdefault(name, {})
-
-        def wrapper(conn, *args):
-            hit = cache.get(args)
-            if hit and _time.time() - hit[0] < ttl_seconds:
-                return hit[1]
-            value = fn(conn, *args)
-            cache[args] = (_time.time(), value)
-            return value
-
-        wrapper.__name__ = fn.__name__
-        return wrapper
-
-    return deco
+from backend.ttl_cache import ttl_memo as _ttl_memo
 
 
 RECENT_N = 8
 
 
-@_ttl_memo("team_games", 600)
+@_ttl_memo("final_games", 600)
+def _final_games(conn):
+    return conn.execute("SELECT * FROM games WHERE status = 'final' ORDER BY kickoff_time DESC").fetchall()
+
+
+def _games_for(conn, team: str, before_kickoff, *, spread_only=True, season_min=None, season_max=None, limit=None):
+    cutoff = before_kickoff or "9999"
+    out = []
+    for g in _final_games(conn):
+        if team not in (g["home_team"], g["away_team"]):
+            continue
+        if spread_only and g["home_spread_close"] is None:
+            continue
+        if g["kickoff_time"] is not None and not g["kickoff_time"] < cutoff:
+            continue
+        if season_min is not None and g["season"] < season_min:
+            continue
+        if season_max is not None and g["season"] > season_max:
+            continue
+        out.append(g)
+        if limit is not None and len(out) >= limit:
+            break
+    return out
+
+
 def _team_games(conn, team: str, before_kickoff: str, limit: int = RECENT_N):
-    rows = conn.execute(
-        """
-        SELECT * FROM games
-        WHERE (home_team = ? OR away_team = ?)
-          AND status = 'final'
-          AND home_spread_close IS NOT NULL
-          AND (kickoff_time IS NULL OR kickoff_time < ?)
-        ORDER BY kickoff_time DESC
-        LIMIT ?
-        """,
-        (team, team, before_kickoff or "9999", limit),
-    ).fetchall()
-    return rows
+    return _games_for(conn, team, before_kickoff, limit=limit)
 
 
 def _ats_result_for_team(game, team: str):
@@ -245,15 +233,10 @@ def _season_record(conn, team: str, season: int, before_kickoff: str):
     standings number, not a last-N-games sample like _team_form below (which
     can span a season boundary and stays capped at RECENT_N regardless of
     how many games this season has actually happened)."""
-    games = conn.execute(
-        """
-        SELECT * FROM games
-        WHERE (home_team = ? OR away_team = ?) AND status = 'final' AND season = ?
-          AND (kickoff_time IS NULL OR kickoff_time < ?)
-        ORDER BY kickoff_time ASC
-        """,
-        (team, team, season, before_kickoff or "9999"),
-    ).fetchall()
+    games = sorted(
+        _games_for(conn, team, before_kickoff, spread_only=False, season_min=season, season_max=season),
+        key=lambda g: g["kickoff_time"] or "",
+    )
     wins = losses = ties = 0
     ats_wins = ats_losses = ats_pushes = 0
     for g in games:
@@ -320,16 +303,7 @@ def _continuity_weighted_form(conn, team: str, current_season: int, before_kicko
     from backend.roster_continuity import continuity_weights_for_seasons
 
     season_floor = current_season - seasons_back
-    rows = conn.execute(
-        """
-        SELECT * FROM games
-        WHERE (home_team = ? OR away_team = ?) AND status = 'final' AND home_spread_close IS NOT NULL
-          AND season >= ? AND season <= ?
-          AND (kickoff_time IS NULL OR kickoff_time < ?)
-        ORDER BY kickoff_time DESC
-        """,
-        (team, team, season_floor, current_season, before_kickoff or "9999"),
-    ).fetchall()
+    rows = _games_for(conn, team, before_kickoff, season_min=season_floor, season_max=current_season)
     if not rows:
         return None
 
@@ -435,16 +409,7 @@ def _weather_form(conn, team: str, bucket_key: str, season_floor: int, before_ki
     both temp and wind together."""
     if not bucket_key or bucket_key == "dome":
         return None
-    rows = conn.execute(
-        """
-        SELECT * FROM games
-        WHERE (home_team = ? OR away_team = ?) AND status = 'final' AND home_spread_close IS NOT NULL
-          AND roof != 'dome' AND season >= ?
-          AND (kickoff_time IS NULL OR kickoff_time < ?)
-        ORDER BY kickoff_time DESC
-        """,
-        (team, team, season_floor, before_kickoff or "9999"),
-    ).fetchall()
+    rows = [g for g in _games_for(conn, team, before_kickoff, season_min=season_floor) if g["roof"] != "dome"]
     matched = [g for g in rows if _weather_bucket(g["temp"], g["wind"], g["roof"])[0] == bucket_key]
     ats = [r for r in (_ats_result_for_team(g, team) for g in matched) if r]
     su = [r for r in (_su_result_for_team(g, team) for g in matched) if r]

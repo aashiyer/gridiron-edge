@@ -21,7 +21,7 @@ def _record(rows, field: str = "result") -> dict:
 def dashboard_summary(current_user: dict = Depends(get_current_user)):
     with db_session() as conn:
         all_picks = conn.execute(
-            "SELECT p.*, g.home_team, g.away_team, g.season, g.week FROM picks p JOIN games g ON g.game_id = p.game_id"
+            "SELECT p.*, g.home_team, g.away_team, g.season, g.week, g.home_spread_close FROM picks p JOIN games g ON g.game_id = p.game_id"
             " WHERE p.user_id = ?",
             (current_user["user_id"],),
         ).fetchall()
@@ -36,6 +36,21 @@ def dashboard_summary(current_user: dict = Depends(get_current_user)):
         team = p["selection"]
         by_team.setdefault(team, []).append(p)
 
+    su_by_team: dict = {}
+    su_favorite, su_underdog, ats_laying, ats_taking = [], [], [], []
+    for p in su:
+        su_by_team.setdefault(p["selection"], []).append(p)
+        line = p["home_spread_close"]
+        if line is None or line == 0:
+            continue
+        team_line = line if p["selection"] == p["home_team"] else -line
+        (su_favorite if team_line < 0 else su_underdog).append(p)
+    for p in ats:
+        line = p["line_at_pick_time"]
+        if line is None or line == 0:
+            continue
+        (ats_laying if line < 0 else ats_taking).append(p)
+
     by_week: dict = {}
     for p in decided:
         if p["pick_type"] not in ("straight_up", "ats"):
@@ -49,6 +64,13 @@ def dashboard_summary(current_user: dict = Depends(get_current_user)):
         "total": _record(total_bets),
         "pending_count": sum(1 for p in all_picks if p["result"] == "pending"),
         "by_team": {team: _record(rows) for team, rows in by_team.items()},
+        "su_by_team": {team: _record(rows) for team, rows in su_by_team.items()},
+        "tendencies": {
+            "su_favorite": _record(su_favorite),
+            "su_underdog": _record(su_underdog),
+            "ats_laying": _record(ats_laying),
+            "ats_taking": _record(ats_taking),
+        },
         "by_week": {
             week: {"straight_up": _record(rows["straight_up"]), "ats": _record(rows["ats"])}
             for week, rows in sorted(by_week.items())

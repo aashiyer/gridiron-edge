@@ -13,7 +13,12 @@ export function RecordPage() {
 
   if (!summary) return <div className="max-w-5xl mx-auto px-4 py-6 text-[var(--text-muted)] text-sm">Loading…</div>;
 
-  const teamRows = Object.entries(summary.by_team).sort((a, b) => (b[1].win_pct ?? 0) - (a[1].win_pct ?? 0));
+  const emptyRecord: DashboardSummary["straight_up"] = { wins: 0, losses: 0, pushes: 0, win_pct: null };
+  const teams = Array.from(new Set([...Object.keys(summary.by_team), ...Object.keys(summary.su_by_team)]));
+  const teamRows = teams
+    .map((team) => ({ team, ats: summary.by_team[team] ?? emptyRecord, su: summary.su_by_team[team] ?? emptyRecord }))
+    .sort((a, b) => (b.ats.win_pct ?? 0) - (a.ats.win_pct ?? 0));
+  const fmtRec = (r: typeof emptyRecord) => `${r.wins}-${r.losses}${r.pushes ? `-${r.pushes}` : ""}`;
   const weekRows = Object.entries(summary.by_week);
 
   return (
@@ -33,10 +38,20 @@ export function RecordPage() {
       </div>
 
       <section>
-        <h2 className="text-lg font-semibold text-[var(--text)] mb-3">ATS Record by Team Picked</h2>
-        {teamRows.length === 0 && <div className="text-sm text-[var(--text-faint)]">No graded ATS picks yet.</div>}
+        <h2 className="text-lg font-semibold text-[var(--text)] mb-3">Tendencies</h2>
+        <div className="flex flex-wrap gap-3">
+          <RecordPill label="Picking Favorites (SU)" record={summary.tendencies.su_favorite} />
+          <RecordPill label="Picking Underdogs (SU)" record={summary.tendencies.su_underdog} />
+          <RecordPill label="Laying Points (ATS)" record={summary.tendencies.ats_laying} />
+          <RecordPill label="Taking Points (ATS)" record={summary.tendencies.ats_taking} />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-lg font-semibold text-[var(--text)] mb-3">Record by Team Picked</h2>
+        {teamRows.length === 0 && <div className="text-sm text-[var(--text-faint)]">No graded picks yet.</div>}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-          {teamRows.map(([team, record]) => {
+          {teamRows.map(({ team, ats, su }) => {
             const meta = team_meta_lookup(team);
             return (
               <div key={team} className="flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--card)]/40 px-3 py-2">
@@ -44,8 +59,9 @@ export function RecordPage() {
                 <div className="flex-1">
                   <div className="text-sm font-medium text-[var(--text)]">{team}</div>
                   <div className="text-xs text-[var(--text-muted)]">
-                    {record.wins}-{record.losses}
-                    {record.pushes ? `-${record.pushes}` : ""} {record.win_pct !== null ? `(${record.win_pct}%)` : ""}
+                    ATS {fmtRec(ats)}
+                    <span className="mx-1.5 text-[var(--text-faint)]">·</span>
+                    SU {fmtRec(su)}
                   </div>
                 </div>
               </div>

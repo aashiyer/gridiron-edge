@@ -90,6 +90,13 @@ export interface DashboardSummary {
   total: Record;
   pending_count: number;
   by_team: Record_<string, Record>;
+  su_by_team: Record_<string, Record>;
+  tendencies: {
+    su_favorite: Record;
+    su_underdog: Record;
+    ats_laying: Record;
+    ats_taking: Record;
+  };
   by_week: Record_<string, { straight_up: Record; ats: Record }>;
   break_even_pct: number;
 }

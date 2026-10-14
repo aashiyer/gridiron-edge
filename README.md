@@ -117,6 +117,7 @@ python -m scripts.train_total_model    # same, for the Over/Under model
 | File | What it does |
 |---|---|
 | `tick.py` | Entry point for every scheduled job (`python -m ingestion.tick --job <name>`). `JOBS` dict maps a name to a function; see `.github/workflows/cron.yml` for the schedule. |
+| `import_picks_sheet.py` | One-off importer for the group's Excel picks sheet: `python -m ingestion.import_picks_sheet --file <xlsx> --user Name=email [--apply]`. Dry run by default; only adds picks the app doesn't already have (app picks win), then grades them. |
 | `espn_odds.py` | Polls ESPN's unofficial API for the current week's live odds, scores, and status; auto-grades picks on games going final. |
 | `backfill_historical.py` | One-time-per-range backfill of `games` (schedules, closing lines, results) from nflverse. |
 | `pbp_stats.py` | Aggregates nflverse play-by-play into team-week efficiency stats (EPA/play, success rate, yards/play, 3rd-down%, red-zone%, turnovers). |

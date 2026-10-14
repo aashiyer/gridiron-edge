@@ -136,6 +136,7 @@ export function GamePickCard({
           edge={rec?.lean_total === "over"}
           disabled={locked || total === null}
           hint={`Over ${total ?? ""}`}
+          split={{ fill: [game.away.color, game.home.color], outline: [game.away.secondary, game.home.secondary] }}
           onClick={() => togglePick("total", "over", total)}
         >
           <Cell main={tot ? fmtPct(tot.over) : total !== null ? `O ${total}` : "—"} />
@@ -146,6 +147,7 @@ export function GamePickCard({
           edge={rec?.lean_total === "under"}
           disabled={locked || total === null}
           hint={`Under ${total ?? ""}`}
+          split={{ fill: [game.away.color, game.home.color], outline: [game.away.secondary, game.home.secondary] }}
           onClick={() => togglePick("total", "under", total)}
         >
           <Cell main={tot ? fmtPct(tot.under) : total !== null ? `U ${total}` : "—"} />
@@ -295,6 +297,7 @@ export function PickButton({
   hint,
   color,
   secondary,
+  split,
   onClick,
 }: {
   children: React.ReactNode;
@@ -305,10 +308,12 @@ export function PickButton({
   hint?: string;
   color?: string;
   secondary?: string;
+  split?: { fill: [string, string]; outline: [string, string] };
   onClick: () => void;
 }) {
   const graded = active && (result === "win" || result === "loss" || result === "push");
   const teamColored = !!color && !!active && !graded;
+  const splitColored = !!split && !!active && !graded;
   const resultClasses: Record<string, string> = {
     win: "bg-emerald-500 border-emerald-500 text-white hover:bg-emerald-500/90",
     loss: "bg-rose-500 border-rose-500 text-white hover:bg-rose-500/90",
@@ -319,7 +324,15 @@ export function PickButton({
       onClick={onClick}
       disabled={disabled}
       style={
-        teamColored
+        splitColored
+          ? {
+              border: "2px solid transparent",
+              background: `linear-gradient(90deg, ${split!.fill[0]} 50%, ${split!.fill[1]} 50%) padding-box, linear-gradient(90deg, ${split!.outline[0]} 50%, ${split!.outline[1]} 50%) border-box`,
+              color: "#ffffff",
+              textShadow: "0 1px 2px rgba(0,0,0,0.7)",
+              boxShadow: "0 3px 10px rgba(0,0,0,0.25)",
+            }
+          : teamColored
           ? {
               backgroundColor: color,
               borderColor: secondary ?? color,
@@ -340,7 +353,7 @@ export function PickButton({
       className={`relative flex-1 rounded-lg px-3 py-1.5 text-sm font-medium border transition-colors ${
         graded
           ? `${resultClasses[result as string]} shadow-sm`
-          : teamColored
+          : teamColored || splitColored
           ? "shadow-sm hover:brightness-110"
           : active
           ? "bg-[var(--accent)] border-[var(--accent)] text-[var(--accent-text)] shadow-sm hover:bg-[var(--accent)]/90"

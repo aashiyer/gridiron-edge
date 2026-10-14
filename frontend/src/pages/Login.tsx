@@ -8,6 +8,7 @@ export function LoginPage() {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -30,9 +31,9 @@ export function LoginPage() {
     setBusy(true);
     try {
       if (mode === "login") {
-        await login(email, password);
+        await login(email.trim(), password);
       } else {
-        await signup(email, password, displayName);
+        await signup(email.trim(), password, displayName.trim());
       }
       navigate("/", { replace: true });
     } catch (e) {
@@ -74,6 +75,8 @@ export function LoginPage() {
             <input
               required
               type="email"
+              autoCapitalize="none"
+              autoCorrect="off"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
@@ -81,15 +84,29 @@ export function LoginPage() {
             />
           </Field>
           <Field label="Password">
-            <input
-              required
-              type="password"
-              minLength={8}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="At least 8 characters"
-              className="input"
-            />
+            <div className="relative">
+              <input
+                required
+                type={showPassword ? "text" : "password"}
+                minLength={8}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="At least 8 characters"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                className="input w-full pr-16"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-pressed={showPassword}
+                className="absolute inset-y-0 right-0 px-3 text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors"
+              >
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
           </Field>
 
           {error && <div className="text-xs text-[var(--destructive)]">{error}</div>}

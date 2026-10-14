@@ -43,6 +43,9 @@ export function GamePickCard({
   const ats = percent ? atsProbs(kalshi, spread) : null;
   const tot = percent ? totalProbs(kalshi, total) : null;
 
+  const mlAway = game.current_away_ml ?? game.away_ml_close ?? null;
+  const mlHome = game.current_home_ml ?? game.home_ml_close ?? null;
+
   const resultFor = (pickType: string): Pick["result"] | undefined =>
     existingPicks.find((p) => p.pick_type === pickType)?.result;
 
@@ -61,91 +64,93 @@ export function GamePickCard({
 
       <Link
         to={`/games/${game.game_id}`}
-        className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-3 -m-1 p-1 rounded-lg hover:bg-[var(--surface-hover)] transition-colors"
+        className="grid grid-cols-2 gap-2 -m-1 p-1 rounded-lg hover:bg-[var(--surface-hover)] transition-colors"
         title="View full game details"
       >
-        <TeamColumn team={game.away} score={game.final_away_score} align="left" record={rec?.away_record} />
-        <div className="text-[var(--text-faint)] text-xs sm:text-sm font-medium">@</div>
-        <TeamColumn team={game.home} score={game.final_home_score} align="right" record={rec?.home_record} />
+        <TeamColumn team={game.away} score={game.final_away_score} record={rec?.away_record} />
+        <TeamColumn team={game.home} score={game.final_home_score} record={rec?.home_record} />
       </Link>
 
-      {win && (
-        <div className="-mt-1" title="Kalshi market-implied win probability">
-          <div className="h-1.5 rounded-full bg-[var(--surface)] overflow-hidden flex">
-            <div className="bg-[var(--accent)]/50" style={{ width: `${win.away * 100}%` }} />
-            <div className="bg-[var(--accent)]" style={{ width: `${win.home * 100}%` }} />
-          </div>
-        </div>
-      )}
-
-      <PickRow label="Straight Up" shortLabel="SU">
-        <PickButton
-          active={selectionFor("straight_up") === game.away_team}
-          result={resultFor("straight_up")}
-          edge={rec?.lean_straight_up === game.away_team}
-          disabled={locked}
-          onClick={() => togglePick("straight_up", game.away_team, null)}
-        >
-          {game.away.abbr}{win ? ` ${fmtPct(win.away)}` : ""}
-        </PickButton>
-        <PickButton
-          active={selectionFor("straight_up") === game.home_team}
-          result={resultFor("straight_up")}
-          edge={rec?.lean_straight_up === game.home_team}
-          disabled={locked}
-          onClick={() => togglePick("straight_up", game.home_team, null)}
-        >
-          {game.home.abbr}{win ? ` ${fmtPct(win.home)}` : ""}
-        </PickButton>
-      </PickRow>
-
-
-      <PickRow label="Against the Spread" shortLabel="ATS">
+      <div className="grid grid-cols-2 gap-2">
         <PickButton
           active={selectionFor("ats") === game.away_team}
           result={resultFor("ats")}
           edge={rec?.lean_ats === game.away_team}
           disabled={locked || spread === null}
-          hint={ats && spread !== null ? `Kalshi cover probability at ${game.away.abbr} ${fmtSpread(-spread)}` : undefined}
+          hint={`${game.away.name} ${spread !== null ? fmtSpread(-spread) : ""} spread`}
+          color={game.away.color}
           onClick={() => togglePick("ats", game.away_team, spread !== null ? -spread : null)}
         >
-          {game.away.abbr} {ats ? fmtPct(ats.away) : spread !== null ? fmtSpread(-spread) : ""}
+          <Cell
+            main={ats ? fmtPct(ats.away) : spread !== null ? fmtSpread(-spread) : "—"}
+            sub={ats && spread !== null ? fmtSpread(-spread) : undefined}
+          />
         </PickButton>
         <PickButton
           active={selectionFor("ats") === game.home_team}
           result={resultFor("ats")}
           edge={rec?.lean_ats === game.home_team}
           disabled={locked || spread === null}
-          hint={ats && spread !== null ? `Kalshi cover probability at ${game.home.abbr} ${fmtSpread(spread)}` : undefined}
+          hint={`${game.home.name} ${spread !== null ? fmtSpread(spread) : ""} spread`}
+          color={game.home.color}
           onClick={() => togglePick("ats", game.home_team, spread)}
         >
-          {game.home.abbr} {ats ? fmtPct(ats.home) : spread !== null ? fmtSpread(spread) : ""}
+          <Cell
+            main={ats ? fmtPct(ats.home) : spread !== null ? fmtSpread(spread) : "—"}
+            sub={ats && spread !== null ? fmtSpread(spread) : undefined}
+          />
         </PickButton>
-      </PickRow>
 
+        <PickButton
+          active={selectionFor("straight_up") === game.away_team}
+          result={resultFor("straight_up")}
+          edge={rec?.lean_straight_up === game.away_team}
+          disabled={locked}
+          hint={`${game.away.name} to win outright`}
+          color={game.away.color}
+          onClick={() => togglePick("straight_up", game.away_team, null)}
+        >
+          <Cell
+            main={win ? fmtPct(win.away) : mlAway !== null ? fmtSpread(mlAway) : "ML"}
+            sub={win && mlAway !== null ? fmtSpread(mlAway) : undefined}
+          />
+        </PickButton>
+        <PickButton
+          active={selectionFor("straight_up") === game.home_team}
+          result={resultFor("straight_up")}
+          edge={rec?.lean_straight_up === game.home_team}
+          disabled={locked}
+          hint={`${game.home.name} to win outright`}
+          color={game.home.color}
+          onClick={() => togglePick("straight_up", game.home_team, null)}
+        >
+          <Cell
+            main={win ? fmtPct(win.home) : mlHome !== null ? fmtSpread(mlHome) : "ML"}
+            sub={win && mlHome !== null ? fmtSpread(mlHome) : undefined}
+          />
+        </PickButton>
 
-      <PickRow label="Total" shortLabel="O/U">
         <PickButton
           active={selectionFor("total") === "over"}
           result={resultFor("total")}
           edge={rec?.lean_total === "over"}
           disabled={locked || total === null}
-          hint={tot ? `Kalshi probability of over ${total}` : undefined}
+          hint={`Over ${total ?? ""}`}
           onClick={() => togglePick("total", "over", total)}
         >
-          Over {tot ? fmtPct(tot.over) : total ?? ""}
+          <Cell main={tot ? fmtPct(tot.over) : total !== null ? `O ${total}` : "—"} sub={tot ? `O ${total}` : undefined} />
         </PickButton>
         <PickButton
           active={selectionFor("total") === "under"}
           result={resultFor("total")}
           edge={rec?.lean_total === "under"}
           disabled={locked || total === null}
-          hint={tot ? `Kalshi probability of under ${total}` : undefined}
+          hint={`Under ${total ?? ""}`}
           onClick={() => togglePick("total", "under", total)}
         >
-          Under {tot ? fmtPct(tot.under) : total ?? ""}
+          <Cell main={tot ? fmtPct(tot.under) : total !== null ? `U ${total}` : "—"} sub={tot ? `U ${total}` : undefined} />
         </PickButton>
-      </PickRow>
+      </div>
 
       {error && <div className="text-xs text-[var(--destructive)]">{error}</div>}
 
@@ -226,33 +231,31 @@ function LeanLine({
   );
 }
 
-function TeamColumn({
-  team,
-  score,
-  align,
-  record,
-}: {
-  team: Game["home"];
-  score: number | null;
-  align: "left" | "right";
-  record?: TeamRecord;
-}) {
+function TeamColumn({ team, score, record }: { team: Game["home"]; score: number | null; record?: TeamRecord }) {
   const hasRecord = record && (record.wins || record.losses || record.ties);
+  const nickname = team.name.split(" ").slice(-1)[0];
   return (
-    <div className={`flex items-center gap-1.5 sm:gap-2 ${align === "right" ? "flex-row-reverse text-right" : ""}`}>
-      <TeamLogo team={team} size={44} className="w-8 h-8 sm:w-11 sm:h-11" />
-      <div>
-        <div className="font-display font-bold text-sm sm:text-base text-[var(--text)]">{team.abbr}</div>
-        {score !== null && <div className="text-xs sm:text-sm text-[var(--text-muted)]">{score}</div>}
-        {hasRecord && (
-          <div className="text-[10px] text-sky-400/80 font-medium tracking-wide">
-            {record!.wins}-{record!.losses}
-            {record!.ties ? `-${record!.ties}` : ""} ({record!.ats_wins}-{record!.ats_losses}
-            {record!.ats_pushes ? `-${record!.ats_pushes}` : ""} ATS)
-          </div>
-        )}
-      </div>
+    <div className="flex flex-col items-center text-center gap-0.5">
+      <TeamLogo team={team} size={44} className="w-9 h-9 sm:w-11 sm:h-11" />
+      <div className="font-display font-bold text-sm sm:text-base text-[var(--text)] leading-tight">{nickname}</div>
+      {score !== null && <div className="text-sm text-[var(--text-muted)] tabular-nums">{score}</div>}
+      {hasRecord && (
+        <div className="text-[10px] text-sky-400/80 font-medium tracking-wide">
+          {record!.wins}-{record!.losses}
+          {record!.ties ? `-${record!.ties}` : ""} ({record!.ats_wins}-{record!.ats_losses}
+          {record!.ats_pushes ? `-${record!.ats_pushes}` : ""} ATS)
+        </div>
+      )}
     </div>
+  );
+}
+
+function Cell({ main, sub }: { main: string; sub?: string }) {
+  return (
+    <span className="flex flex-col items-center justify-center leading-tight py-0.5">
+      <span className="text-base font-semibold tabular-nums">{main}</span>
+      {sub && <span className="text-[10px] font-medium opacity-70 tabular-nums">{sub}</span>}
+    </span>
   );
 }
 
@@ -269,6 +272,18 @@ export function PickRow({ label, shortLabel, children }: { label: string; shortL
   );
 }
 
+function readableOn(hex: string): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return "#ffffff";
+  const n = parseInt(m[1], 16);
+  const lin = (c: number) => {
+    const v = c / 255;
+    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  };
+  const lum = 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
+  return lum > 0.5 ? "#111111" : "#ffffff";
+}
+
 const RESULT_BADGE: Record<string, string> = { win: "✓", loss: "✗", push: "P" };
 
 export function PickButton({
@@ -278,6 +293,7 @@ export function PickButton({
   edge,
   disabled,
   hint,
+  color,
   onClick,
 }: {
   children: React.ReactNode;
@@ -286,9 +302,11 @@ export function PickButton({
   edge?: boolean;
   disabled?: boolean;
   hint?: string;
+  color?: string;
   onClick: () => void;
 }) {
   const graded = active && (result === "win" || result === "loss" || result === "push");
+  const teamColored = !!color && !!active && !graded;
   const resultClasses: Record<string, string> = {
     win: "bg-emerald-500 border-emerald-500 text-white hover:bg-emerald-500/90",
     loss: "bg-rose-500 border-rose-500 text-white hover:bg-rose-500/90",
@@ -298,6 +316,16 @@ export function PickButton({
     <button
       onClick={onClick}
       disabled={disabled}
+      style={
+        teamColored
+          ? {
+              backgroundColor: color,
+              borderColor: color,
+              color: readableOn(color as string),
+              boxShadow: `0 0 0 1px rgba(255,255,255,0.22), 0 3px 10px ${color}66`,
+            }
+          : undefined
+      }
       title={
         graded
           ? `You ${result} this pick`
@@ -310,6 +338,8 @@ export function PickButton({
       className={`relative flex-1 rounded-lg px-3 py-1.5 text-sm font-medium border transition-colors ${
         graded
           ? `${resultClasses[result as string]} shadow-sm`
+          : teamColored
+          ? "shadow-sm hover:brightness-110"
           : active
           ? "bg-[var(--accent)] border-[var(--accent)] text-[var(--accent-text)] shadow-sm hover:bg-[var(--accent)]/90"
           : disabled

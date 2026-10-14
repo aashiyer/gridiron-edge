@@ -194,6 +194,7 @@ function MakePickSection({
             active={selectionFor("straight_up") === detail.away_team}
             edge={rec?.lean_straight_up === detail.away_team}
             disabled={locked}
+            color={detail.away.color}
             onClick={() => togglePick("straight_up", detail.away_team, null)}
           >
             {detail.away.abbr}
@@ -202,6 +203,7 @@ function MakePickSection({
             active={selectionFor("straight_up") === detail.home_team}
             edge={rec?.lean_straight_up === detail.home_team}
             disabled={locked}
+            color={detail.home.color}
             onClick={() => togglePick("straight_up", detail.home_team, null)}
           >
             {detail.home.abbr}
@@ -213,6 +215,7 @@ function MakePickSection({
             active={selectionFor("ats") === detail.away_team}
             edge={rec?.lean_ats === detail.away_team}
             disabled={locked || spread === null}
+            color={detail.away.color}
             onClick={() => togglePick("ats", detail.away_team, spread !== null ? -spread : null)}
           >
             {detail.away.abbr} {spread !== null ? fmtSpread(-spread) : ""}
@@ -221,6 +224,7 @@ function MakePickSection({
             active={selectionFor("ats") === detail.home_team}
             edge={rec?.lean_ats === detail.home_team}
             disabled={locked || spread === null}
+            color={detail.home.color}
             onClick={() => togglePick("ats", detail.home_team, spread)}
           >
             {detail.home.abbr} {spread !== null ? fmtSpread(spread) : ""}

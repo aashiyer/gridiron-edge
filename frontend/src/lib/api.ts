@@ -132,7 +132,8 @@ export const api = {
     req<Pick | { selection: null }>(`/picks/set`, { method: "PUT", body: JSON.stringify(body) }),
   deletePick: (pickId: number) => req<{ deleted: number }>(`/picks/${pickId}`, { method: "DELETE" }),
 
-  dashboard: () => req<DashboardSummary>(`/dashboard`),
+  dashboard: (params: { season?: number } = {}) =>
+    req<DashboardSummary>(`/dashboard${params.season ? `?season=${params.season}` : ""}`),
   vsModel: () => req<VsModelSummary>(`/dashboard/vs-model`),
   leaderboard: (params: { season?: number; week?: number } = {}) => {
     const qs = new URLSearchParams();

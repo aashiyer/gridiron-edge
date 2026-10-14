@@ -37,14 +37,18 @@ export function Home() {
   const [vsModel, setVsModel] = useState<VsModelSummary | null>(null);
   const [nextRec, setNextRec] = useState<Recommendation | null>(null);
   const [loading, setLoading] = useState(true);
+  const [season, setSeason] = useState<number | null>(null);
 
   useEffect(() => {
-    const season = new Date().getFullYear();
-    Promise.all([api.games({ season }), api.dashboard(), api.vsModel()]).then(([g, d, v]) => {
-      setGames(g);
-      setDashboard(d);
-      setVsModel(v);
-      setLoading(false);
+    api.seasons().then((list) => {
+      const latest = list.length ? Math.max(...list) : new Date().getFullYear();
+      setSeason(latest);
+      Promise.all([api.games({ season: latest }), api.dashboard({ season: latest }), api.vsModel()]).then(([g, d, v]) => {
+        setGames(g);
+        setDashboard(d);
+        setVsModel(v);
+        setLoading(false);
+      });
     });
   }, []);
 
@@ -134,7 +138,7 @@ export function Home() {
 
 
       <section>
-        <h2 className="text-sm font-bold uppercase tracking-widest text-[var(--text-muted)] mb-4">The Numbers</h2>
+        <h2 className="text-sm font-bold uppercase tracking-widest text-[var(--text-muted)] mb-4">The Numbers{season ? ` · ${season} Season` : ""}</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <StatCard
             label="Your Record · SU"

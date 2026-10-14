@@ -18,13 +18,17 @@ def _record(rows, field: str = "result") -> dict:
 
 
 @router.get("")
-def dashboard_summary(current_user: dict = Depends(get_current_user)):
+def dashboard_summary(season: Optional[int] = None, current_user: dict = Depends(get_current_user)):
+    query = (
+        "SELECT p.*, g.home_team, g.away_team, g.season, g.week, g.home_spread_close FROM picks p JOIN games g ON g.game_id = p.game_id"
+        " WHERE p.user_id = ?"
+    )
+    params: list = [current_user["user_id"]]
+    if season is not None:
+        query += " AND g.season = ?"
+        params.append(season)
     with db_session() as conn:
-        all_picks = conn.execute(
-            "SELECT p.*, g.home_team, g.away_team, g.season, g.week, g.home_spread_close FROM picks p JOIN games g ON g.game_id = p.game_id"
-            " WHERE p.user_id = ?",
-            (current_user["user_id"],),
-        ).fetchall()
+        all_picks = conn.execute(query, params).fetchall()
 
     decided = [p for p in all_picks if p["result"] in ("win", "loss", "push")]
     su = [p for p in decided if p["pick_type"] == "straight_up"]

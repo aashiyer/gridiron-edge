@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import type { GameDetail as GameDetailType, Pick, TeamMeta, TeamForm, TeamEfficiency, DepthChart, DepthChartEntry, QbStatus } from "../lib/types";
 import { TeamLogo } from "../components/TeamBadge";
 import { PickRow, PickButton } from "../components/GamePickCard";
+import { LineMovementChart } from "../components/LineMovementChart";
 import { usePickToggle } from "../lib/usePickToggle";
 
 function fmtKickoff(iso: string | null) {
@@ -554,19 +555,7 @@ function OddsHistorySection({ history, homeTeam }: { history: GameDetailType["od
   return (
     <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm p-4 sm:p-5">
       <h2 className="text-sm font-bold text-[var(--text)] mb-3">Line Movement</h2>
-      <div className="flex flex-col gap-1.5 max-h-64 overflow-y-auto">
-        {[...history].reverse().map((o) => (
-          <div key={o.id} className="grid grid-cols-[1fr_auto_auto] gap-3 text-xs py-1 border-b border-[var(--border)] last:border-0">
-            <span className="text-[var(--text-faint)]">
-              {new Date(o.captured_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-            </span>
-            <span className="text-[var(--text-muted)] tabular-nums">
-              {o.home_spread !== null ? `${homeTeam} ${fmtSpread(o.home_spread)}` : "—"}
-            </span>
-            <span className="text-[var(--text-muted)] tabular-nums">{o.total !== null ? `O/U ${o.total}` : "—"}</span>
-          </div>
-        ))}
-      </div>
+      <LineMovementChart history={history} homeTeam={homeTeam} />
     </section>
   );
 }

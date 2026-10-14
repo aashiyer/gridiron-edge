@@ -3,6 +3,7 @@ import type {
   Pick,
   DashboardSummary,
   Recommendation,
+  KalshiGame,
   GameDetail,
   TeamMeta,
   VsModelSummary,
@@ -100,6 +101,8 @@ export const api = {
   gameDetail: (gameId: string) => req<GameDetail>(`/games/${gameId}/detail`),
   recommendations: (params: { season: number; week: number }) =>
     req<Record<string, Recommendation>>(`/games/recommendations?season=${params.season}&week=${params.week}`),
+  kalshi: (params: { season: number; week: number }) =>
+    req<Record<string, KalshiGame>>(`/kalshi?season=${params.season}&week=${params.week}`),
   seasons: () => req<number[]>(`/games/meta/seasons`),
   powerRankings: (params: { season: number; week?: number }) => {
     const qs = new URLSearchParams({ season: String(params.season) });

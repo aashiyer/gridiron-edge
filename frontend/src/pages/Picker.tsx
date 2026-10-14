@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../lib/api";
-import type { Game, Pick, Recommendation } from "../lib/types";
+import type { Game, KalshiGame, Pick, Recommendation } from "../lib/types";
+import type { PickerView } from "../lib/kalshi";
 import { GamePickCard } from "../components/GamePickCard";
 
 function currentWeekFor(allGames: Game[]): number | null {
@@ -8,6 +9,40 @@ function currentWeekFor(allGames: Game[]): number | null {
   const upcoming = allGames.filter((g) => g.status !== "final");
   if (upcoming.length) return Math.min(...upcoming.map((g) => g.week));
   return Math.max(...allGames.map((g) => g.week));
+}
+
+function storedView(): PickerView {
+  try {
+    return localStorage.getItem("pickerView") === "percent" ? "percent" : "spread";
+  } catch {
+    return "spread";
+  }
+}
+
+function ViewToggle({ view, onChange }: { view: PickerView; onChange: (v: PickerView) => void }) {
+  const options: { value: PickerView; label: string }[] = [
+    { value: "spread", label: "Spread" },
+    { value: "percent", label: "Percentage" },
+  ];
+  return (
+    <div role="tablist" aria-label="Picker view" className="inline-flex rounded-xl border border-[var(--border)] bg-[var(--surface)] p-0.5">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          role="tab"
+          aria-selected={view === o.value}
+          onClick={() => onChange(o.value)}
+          className={`px-3.5 py-1.5 rounded-[10px] text-sm font-medium transition-colors ${
+            view === o.value
+              ? "bg-[var(--accent)] text-[var(--accent-text)] shadow-sm"
+              : "text-[var(--text-muted)] hover:text-[var(--text)]"
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 export function Picker() {
@@ -21,6 +56,8 @@ export function Picker() {
   const requestId = useRef(0);
   const picksRequestId = useRef(0);
   const [recs, setRecs] = useState<Record<string, Recommendation>>({});
+  const [view, setView] = useState<PickerView>(storedView);
+  const [kalshi, setKalshi] = useState<Record<string, KalshiGame>>({});
   const gamesRef = useRef<Game[]>([]);
   useEffect(() => {
     gamesRef.current = games;
@@ -99,6 +136,32 @@ export function Picker() {
     };
   }, [season, week]);
 
+  function changeView(v: PickerView) {
+    setView(v);
+    try {
+      localStorage.setItem("pickerView", v);
+    } catch {
+    }
+  }
+
+  useEffect(() => {
+    if (view !== "percent" || week === null || season === null) return;
+    let cancelled = false;
+    async function load() {
+      try {
+        const r = await api.kalshi({ season: season as number, week: week as number });
+        if (!cancelled) setKalshi((prev) => ({ ...prev, ...r }));
+      } catch {
+      }
+    }
+    load();
+    const id = setInterval(load, 60 * 1000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [view, season, week]);
+
   const weekGames = useMemo(() => games.filter((g) => g.week === week), [games, week]);
   const availableWeeks = useMemo(() => Array.from(new Set(games.map((g) => g.week))).sort((a, b) => a - b), [games]);
 
@@ -172,6 +235,13 @@ export function Picker() {
         )}
       </div>
 
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-4">
+        <ViewToggle view={view} onChange={changeView} />
+        {view === "percent" && (
+          <span className="text-xs text-[var(--text-faint)]">Market-implied probabilities from Kalshi, refreshed every minute.</span>
+        )}
+      </div>
+
       {loading && <div className="text-[var(--text-muted)] text-sm">Loading slate…</div>}
       {!loading && weekGames.length === 0 && (
         <div className="text-[var(--text-muted)] text-sm">No games found for this week yet — run the odds poller to pull the latest slate.</div>
@@ -186,6 +256,8 @@ export function Picker() {
             rec={recs[g.game_id] ?? null}
             loadingRec={!recs[g.game_id]}
             onPickMade={refreshPicks}
+            view={view}
+            kalshi={kalshi[g.game_id] ?? null}
           />
         ))}
       </div>

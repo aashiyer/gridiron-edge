@@ -98,6 +98,7 @@ python -m scripts.train_total_model    # same, for the Over/Under model
 | `team_efficiency.py` | Recent-form efficiency aggregates (EPA/play, NextGen Stats) read by both `analysis.py` and `features.py`. |
 | `roster_continuity.py` | Weights a past season's results by how much of the *current* roster was already on the team that year — discounts a rebuilt team's old history. |
 | `ttl_cache.py` | `ttl_memo` decorator: short-lived in-process cache for read-only lookups repeated across a recommendation refresh, keeping database reads (and Supabase egress) low. |
+| `kalshi.py` | Reads Kalshi's public NFL markets (winner, spread ladder, total ladder) and matches them to our games; served by `routers/kalshi.py` for the Picker's Percentage view. |
 | `historical_injury_signal.py` | Backtestable QB-stability/experience/injury-load signals, computed from real historical usage data (not live scraping) so they can be used as trained-model features. |
 | `injuries.py` | Live QB/starter availability, scoped to the real depth chart (not just any rostered player). |
 | `news.py` | Optional (`OPENAI_API_KEY`): real ESPN headlines for both teams, summarized into 1-2 sentences of qualitative context. |

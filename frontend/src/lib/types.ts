@@ -313,3 +313,9 @@ export interface GameDetail {
   away_depth_chart: DepthChart;
   recommendation: Recommendation | null;
 }
+
+export interface KalshiGame {
+  win?: { home: number; away: number };
+  spread?: { home: { [strike: string]: number }; away: { [strike: string]: number } };
+  total?: { [strike: string]: number };
+}

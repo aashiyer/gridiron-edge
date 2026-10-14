@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
-import type { Game, Pick, Recommendation, TeamRecord } from "../lib/types";
+import type { Game, KalshiGame, Pick, Recommendation, TeamRecord } from "../lib/types";
+import { atsProbs, fmtPct, totalProbs, type PickerView } from "../lib/kalshi";
 import { TeamLogo } from "./TeamBadge";
 import { usePickToggle } from "../lib/usePickToggle";
 
@@ -21,17 +22,26 @@ export function GamePickCard({
   rec,
   loadingRec,
   onPickMade,
+  view = "spread",
+  kalshi = null,
 }: {
   game: Game;
   existingPicks: Pick[];
   rec: Recommendation | null;
   loadingRec: boolean;
   onPickMade: () => void;
+  view?: PickerView;
+  kalshi?: KalshiGame | null;
 }) {
   const { selectionFor, togglePick, locked, error } = usePickToggle(game, existingPicks, onPickMade);
 
   const spread = game.current_spread ?? game.home_spread_close;
   const total = game.current_total ?? game.total_close;
+
+  const percent = view === "percent";
+  const win = percent ? kalshi?.win ?? null : null;
+  const ats = percent ? atsProbs(kalshi, spread) : null;
+  const tot = percent ? totalProbs(kalshi, total) : null;
 
   const resultFor = (pickType: string): Pick["result"] | undefined =>
     existingPicks.find((p) => p.pick_type === pickType)?.result;
@@ -59,6 +69,14 @@ export function GamePickCard({
         <TeamColumn team={game.home} score={game.final_home_score} align="right" record={rec?.home_record} />
       </Link>
 
+      {win && (
+        <div className="-mt-1" title="Kalshi market-implied win probability">
+          <div className="h-1.5 rounded-full bg-[var(--surface)] overflow-hidden flex">
+            <div className="bg-[var(--accent)]/50" style={{ width: `${win.away * 100}%` }} />
+            <div className="bg-[var(--accent)]" style={{ width: `${win.home * 100}%` }} />
+          </div>
+        </div>
+      )}
 
       <PickRow label="Straight Up" shortLabel="SU">
         <PickButton
@@ -68,7 +86,7 @@ export function GamePickCard({
           disabled={locked}
           onClick={() => togglePick("straight_up", game.away_team, null)}
         >
-          {game.away.abbr}
+          {game.away.abbr}{win ? ` ${fmtPct(win.away)}` : ""}
         </PickButton>
         <PickButton
           active={selectionFor("straight_up") === game.home_team}
@@ -77,7 +95,7 @@ export function GamePickCard({
           disabled={locked}
           onClick={() => togglePick("straight_up", game.home_team, null)}
         >
-          {game.home.abbr}
+          {game.home.abbr}{win ? ` ${fmtPct(win.home)}` : ""}
         </PickButton>
       </PickRow>
 
@@ -88,18 +106,20 @@ export function GamePickCard({
           result={resultFor("ats")}
           edge={rec?.lean_ats === game.away_team}
           disabled={locked || spread === null}
+          hint={ats && spread !== null ? `Kalshi cover probability at ${game.away.abbr} ${fmtSpread(-spread)}` : undefined}
           onClick={() => togglePick("ats", game.away_team, spread !== null ? -spread : null)}
         >
-          {game.away.abbr} {spread !== null ? fmtSpread(-spread) : ""}
+          {game.away.abbr} {ats ? fmtPct(ats.away) : spread !== null ? fmtSpread(-spread) : ""}
         </PickButton>
         <PickButton
           active={selectionFor("ats") === game.home_team}
           result={resultFor("ats")}
           edge={rec?.lean_ats === game.home_team}
           disabled={locked || spread === null}
+          hint={ats && spread !== null ? `Kalshi cover probability at ${game.home.abbr} ${fmtSpread(spread)}` : undefined}
           onClick={() => togglePick("ats", game.home_team, spread)}
         >
-          {game.home.abbr} {spread !== null ? fmtSpread(spread) : ""}
+          {game.home.abbr} {ats ? fmtPct(ats.home) : spread !== null ? fmtSpread(spread) : ""}
         </PickButton>
       </PickRow>
 
@@ -110,18 +130,20 @@ export function GamePickCard({
           result={resultFor("total")}
           edge={rec?.lean_total === "over"}
           disabled={locked || total === null}
+          hint={tot ? `Kalshi probability of over ${total}` : undefined}
           onClick={() => togglePick("total", "over", total)}
         >
-          Over {total ?? ""}
+          Over {tot ? fmtPct(tot.over) : total ?? ""}
         </PickButton>
         <PickButton
           active={selectionFor("total") === "under"}
           result={resultFor("total")}
           edge={rec?.lean_total === "under"}
           disabled={locked || total === null}
+          hint={tot ? `Kalshi probability of under ${total}` : undefined}
           onClick={() => togglePick("total", "under", total)}
         >
-          Under {total ?? ""}
+          Under {tot ? fmtPct(tot.under) : total ?? ""}
         </PickButton>
       </PickRow>
 
@@ -255,6 +277,7 @@ export function PickButton({
   result,
   edge,
   disabled,
+  hint,
   onClick,
 }: {
   children: React.ReactNode;
@@ -262,6 +285,7 @@ export function PickButton({
   result?: Pick["result"];
   edge?: boolean;
   disabled?: boolean;
+  hint?: string;
   onClick: () => void;
 }) {
   const graded = active && (result === "win" || result === "loss" || result === "push");
@@ -281,7 +305,7 @@ export function PickButton({
           ? "Click again to remove this pick"
           : edge
           ? "Model has the edge here"
-          : undefined
+          : hint
       }
       className={`relative flex-1 rounded-lg px-3 py-1.5 text-sm font-medium border transition-colors ${
         graded

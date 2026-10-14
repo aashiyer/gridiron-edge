@@ -240,7 +240,8 @@ function MakePickSection({
             active={selectionFor("total") === "over"}
             edge={rec?.lean_total === "over"}
             disabled={locked || total === null}
-            split={{ fill: [detail.away.color, detail.home.color], outline: [detail.away.secondary, detail.home.secondary] }}
+            color={detail.away.color}
+            secondary={detail.away.secondary}
             onClick={() => togglePick("total", "over", total)}
           >
             Over {total ?? ""}
@@ -249,7 +250,8 @@ function MakePickSection({
             active={selectionFor("total") === "under"}
             edge={rec?.lean_total === "under"}
             disabled={locked || total === null}
-            split={{ fill: [detail.away.color, detail.home.color], outline: [detail.away.secondary, detail.home.secondary] }}
+            color={detail.home.color}
+            secondary={detail.home.secondary}
             onClick={() => togglePick("total", "under", total)}
           >
             Under {total ?? ""}

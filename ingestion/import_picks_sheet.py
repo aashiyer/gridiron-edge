@@ -35,6 +35,10 @@ def plan_import(conn, rows, season: int, name: str, user_id: int):
         (g["week"], g["away_team"], g["home_team"]): g
         for g in conn.execute("SELECT * FROM games WHERE season = ?", (season,)).fetchall()
     }
+    playoffs: dict = {}
+    for g in games.values():
+        if g["game_type"] != "REG":
+            playoffs.setdefault(frozenset((g["away_team"], g["home_team"])), []).append(g)
     existing = {
         (p["game_id"], p["pick_type"])
         for p in conn.execute("SELECT game_id, pick_type FROM picks WHERE user_id = ?", (user_id,)).fetchall()
@@ -42,6 +46,9 @@ def plan_import(conn, rows, season: int, name: str, user_id: int):
     inserts, skipped, unmatched = [], 0, 0
     for row in rows:
         game = games.get((row["week"], row["away"], row["home"]))
+        if not game:
+            candidates = playoffs.get(frozenset((row["away"], row["home"])), [])
+            game = candidates[0] if len(candidates) == 1 else None
         if not game:
             unmatched += 1
             continue

@@ -79,11 +79,11 @@ export function GamePickCard({
           disabled={locked || spread === null}
           hint={`${game.away.name} ${spread !== null ? fmtSpread(-spread) : ""} spread`}
           color={game.away.color}
+          secondary={game.away.secondary}
           onClick={() => togglePick("ats", game.away_team, spread !== null ? -spread : null)}
         >
           <Cell
             main={ats ? fmtPct(ats.away) : spread !== null ? fmtSpread(-spread) : "—"}
-            sub={ats && spread !== null ? fmtSpread(-spread) : undefined}
           />
         </PickButton>
         <PickButton
@@ -93,11 +93,11 @@ export function GamePickCard({
           disabled={locked || spread === null}
           hint={`${game.home.name} ${spread !== null ? fmtSpread(spread) : ""} spread`}
           color={game.home.color}
+          secondary={game.home.secondary}
           onClick={() => togglePick("ats", game.home_team, spread)}
         >
           <Cell
             main={ats ? fmtPct(ats.home) : spread !== null ? fmtSpread(spread) : "—"}
-            sub={ats && spread !== null ? fmtSpread(spread) : undefined}
           />
         </PickButton>
 
@@ -108,11 +108,11 @@ export function GamePickCard({
           disabled={locked}
           hint={`${game.away.name} to win outright`}
           color={game.away.color}
+          secondary={game.away.secondary}
           onClick={() => togglePick("straight_up", game.away_team, null)}
         >
           <Cell
             main={win ? fmtPct(win.away) : mlAway !== null ? fmtSpread(mlAway) : "ML"}
-            sub={win && mlAway !== null ? fmtSpread(mlAway) : undefined}
           />
         </PickButton>
         <PickButton
@@ -122,11 +122,11 @@ export function GamePickCard({
           disabled={locked}
           hint={`${game.home.name} to win outright`}
           color={game.home.color}
+          secondary={game.home.secondary}
           onClick={() => togglePick("straight_up", game.home_team, null)}
         >
           <Cell
             main={win ? fmtPct(win.home) : mlHome !== null ? fmtSpread(mlHome) : "ML"}
-            sub={win && mlHome !== null ? fmtSpread(mlHome) : undefined}
           />
         </PickButton>
 
@@ -138,7 +138,7 @@ export function GamePickCard({
           hint={`Over ${total ?? ""}`}
           onClick={() => togglePick("total", "over", total)}
         >
-          <Cell main={tot ? fmtPct(tot.over) : total !== null ? `O ${total}` : "—"} sub={tot ? `O ${total}` : undefined} />
+          <Cell main={tot ? fmtPct(tot.over) : total !== null ? `O ${total}` : "—"} />
         </PickButton>
         <PickButton
           active={selectionFor("total") === "under"}
@@ -148,7 +148,7 @@ export function GamePickCard({
           hint={`Under ${total ?? ""}`}
           onClick={() => togglePick("total", "under", total)}
         >
-          <Cell main={tot ? fmtPct(tot.under) : total !== null ? `U ${total}` : "—"} sub={tot ? `U ${total}` : undefined} />
+          <Cell main={tot ? fmtPct(tot.under) : total !== null ? `U ${total}` : "—"} />
         </PickButton>
       </div>
 
@@ -294,6 +294,7 @@ export function PickButton({
   disabled,
   hint,
   color,
+  secondary,
   onClick,
 }: {
   children: React.ReactNode;
@@ -303,6 +304,7 @@ export function PickButton({
   disabled?: boolean;
   hint?: string;
   color?: string;
+  secondary?: string;
   onClick: () => void;
 }) {
   const graded = active && (result === "win" || result === "loss" || result === "push");
@@ -320,9 +322,9 @@ export function PickButton({
         teamColored
           ? {
               backgroundColor: color,
-              borderColor: color,
+              borderColor: secondary ?? color,
               color: readableOn(color as string),
-              boxShadow: `0 0 0 1px rgba(255,255,255,0.22), 0 3px 10px ${color}66`,
+              boxShadow: `inset 0 0 0 2px ${secondary ?? color}, 0 3px 10px ${color}66`,
             }
           : undefined
       }

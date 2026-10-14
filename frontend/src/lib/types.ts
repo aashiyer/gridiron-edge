@@ -3,6 +3,7 @@ export interface TeamMeta {
   name: string;
   logo: string;
   color: string;
+  secondary: string;
 }
 
 export interface User {

@@ -137,6 +137,8 @@ export function GameDetailPage() {
 
       <MakePickSection detail={detail} rec={rec} picks={picks} onPickMade={reloadPicks} />
 
+      {detail.odds_history.length > 0 && <OddsHistorySection history={detail.odds_history} homeTeam={detail.home_team} />}
+
       {rec && !rec.error && <EdgeSection rec={rec} />}
 
       {rec && !rec.error && (rec.home_qb_status || rec.away_qb_status) && (
@@ -159,8 +161,6 @@ export function GameDetailPage() {
       )}
 
       <DepthChartSection homeTeam={detail.home} awayTeam={detail.away} home={detail.home_depth_chart} away={detail.away_depth_chart} />
-
-      {detail.odds_history.length > 0 && <OddsHistorySection history={detail.odds_history} homeTeam={detail.home_team} />}
     </div>
   );
 }
@@ -195,6 +195,7 @@ function MakePickSection({
             edge={rec?.lean_straight_up === detail.away_team}
             disabled={locked}
             color={detail.away.color}
+            secondary={detail.away.secondary}
             onClick={() => togglePick("straight_up", detail.away_team, null)}
           >
             {detail.away.abbr}
@@ -204,6 +205,7 @@ function MakePickSection({
             edge={rec?.lean_straight_up === detail.home_team}
             disabled={locked}
             color={detail.home.color}
+            secondary={detail.home.secondary}
             onClick={() => togglePick("straight_up", detail.home_team, null)}
           >
             {detail.home.abbr}
@@ -216,6 +218,7 @@ function MakePickSection({
             edge={rec?.lean_ats === detail.away_team}
             disabled={locked || spread === null}
             color={detail.away.color}
+            secondary={detail.away.secondary}
             onClick={() => togglePick("ats", detail.away_team, spread !== null ? -spread : null)}
           >
             {detail.away.abbr} {spread !== null ? fmtSpread(-spread) : ""}
@@ -225,6 +228,7 @@ function MakePickSection({
             edge={rec?.lean_ats === detail.home_team}
             disabled={locked || spread === null}
             color={detail.home.color}
+            secondary={detail.home.secondary}
             onClick={() => togglePick("ats", detail.home_team, spread)}
           >
             {detail.home.abbr} {spread !== null ? fmtSpread(spread) : ""}

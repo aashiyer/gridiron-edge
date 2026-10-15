@@ -41,9 +41,9 @@ export function PowerRankingsPage() {
         <div>
           <h1 className="text-2xl font-bold text-[var(--text)]">Gridiron Efficiency Index</h1>
           <p className="text-sm text-[var(--text-muted)] mt-1">
-            Our own power ranking — opponent-adjusted EPA/play, yards/play, scoring margin (road games and bad-weather
-            games count more), plus the starting QB's efficiency. Mostly this season, with a small weighted look back
-            at the last 3.
+            Our own power ranking, in points better or worse than an average team. Built from opponent-adjusted EPA/play
+            and success rate with garbage time removed, yards/play and scoring margin, adjusted for home field, plus the
+            starting QB. Mostly this season; last season fades out as this one's games pile up.
           </p>
         </div>
         {currentSeason !== null && season !== null && (
@@ -79,7 +79,7 @@ export function PowerRankingsPage() {
                 <span className="text-sm font-medium text-[var(--text)] flex-1">{meta.name}</span>
                 <span className="text-sm font-semibold text-[var(--text)] tabular-nums">
                   {e.gei > 0 ? "+" : ""}
-                  {e.gei.toFixed(3)}
+                  {e.gei.toFixed(1)}
                 </span>
               </div>
             );

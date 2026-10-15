@@ -504,7 +504,7 @@ def _model_prediction_total(conn, game):
 RECOMMENDATION_CACHE_TTL_MINUTES = 360
 
 
-_RECOMMENDATION_SCHEMA_VERSION = 12
+_RECOMMENDATION_SCHEMA_VERSION = 13
 
 
 MIN_COMPATIBLE_SCHEMA_VERSION = 7
@@ -990,14 +990,14 @@ def build_recommendation(game_id: str) -> dict:
 
     if home_gei is not None and away_gei is not None:
         gei_diff = home_gei - away_gei
-        gei_su, gei_ats = gei_diff / 0.6, gei_diff / 1.2
+        gei_su, gei_ats = gei_diff / 4, gei_diff / 8
         score_su["home"] += gei_su
         score_ats["home"] += gei_ats
         better = home if gei_diff > 0 else away if gei_diff < 0 else None
         if better:
             _add(
-                f"Gridiron Efficiency Index (our opponent-adjusted power ranking): {home} {home_gei:+.3f} "
-                f"(#{home_gei_rank}) vs {away} {away_gei:+.3f} (#{away_gei_rank}) — {better} rates better once "
+                f"Gridiron Efficiency Index (our opponent-adjusted power ranking, in points vs. an average team): {home} {home_gei:+.1f} "
+                f"(#{home_gei_rank}) vs {away} {away_gei:+.1f} (#{away_gei_rank}) — {better} rates better once "
                 f"strength of opponents played is accounted for.",
                 su=gei_su, ats=gei_ats, highlight=True,
             )

@@ -195,6 +195,12 @@ CREATE TABLE IF NOT EXISTS team_stats (
     points_for          INTEGER,
     points_against      INTEGER,
     updated_at          TEXT,
+    off_epa_clean       REAL,
+    def_epa_clean       REAL,
+    off_success_clean   REAL,
+    def_success_clean   REAL,
+    off_yards_clean     REAL,
+    def_yards_clean     REAL,
     PRIMARY KEY (season, week, team)
 );
 

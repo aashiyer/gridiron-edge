@@ -23,6 +23,7 @@ from backend.database import db_session, init_db
 from backend.teams import normalize_abbr
 
 SCRIMMAGE_TYPES = {"pass", "run"}
+GARBAGE_WP_LOW, GARBAGE_WP_HIGH = 0.05, 0.95
 
 
 def _team_week_stats(pbp: pd.DataFrame) -> pd.DataFrame:
@@ -79,13 +80,30 @@ def _team_week_stats(pbp: pd.DataFrame) -> pd.DataFrame:
 
     df = pd.DataFrame(rows)
     df["turnover_margin"] = df["turnovers_forced"] - df["turnovers_lost"]
-    return df
+    return df.merge(_clean_stats(pbp), on=["season", "week", "team"], how="left")
+
+
+def _clean_stats(pbp: pd.DataFrame) -> pd.DataFrame:
+    """The same per-team-week efficiency numbers with garbage time removed:
+    plays that began with either side's win probability under 5% (so the
+    game was effectively decided) are left out."""
+    keep = pbp[pbp["wp"].isna() | ((pbp["wp"] >= GARBAGE_WP_LOW) & (pbp["wp"] <= GARBAGE_WP_HIGH))]
+    off = keep.groupby(["season", "week", "posteam"]).agg(
+        off_epa_clean=("epa", "mean"), off_success_clean=("success", "mean"), off_yards_clean=("yards_gained", "mean")
+    ).reset_index().rename(columns={"posteam": "team"})
+    deff = keep.groupby(["season", "week", "defteam"]).agg(
+        def_epa_clean=("epa", "mean"), def_success_clean=("success", "mean"), def_yards_clean=("yards_gained", "mean")
+    ).reset_index().rename(columns={"defteam": "team"})
+    merged = off.merge(deff, on=["season", "week", "team"], how="outer")
+    merged["off_success_clean"] *= 100
+    merged["def_success_clean"] *= 100
+    return merged.round(4)
 
 
 PBP_COLUMNS = [
     "season", "week", "play_type", "epa", "success", "posteam", "defteam",
     "interception", "fumble_lost", "down", "first_down", "yardline_100",
-    "drive", "touchdown", "pass", "rush", "yards_gained",
+    "drive", "touchdown", "pass", "rush", "yards_gained", "wp",
 ]
 
 
@@ -119,6 +137,8 @@ def sync_pbp_stats(start_season: int, end_season: int):
                     r["red_zone_td_pct"], r["red_zone_td_pct_def"],
                     int(r["turnovers_lost"]), int(r["turnovers_forced"]), int(r["turnover_margin"]),
                     pf, pa, now,
+                    r["off_epa_clean"], r["def_epa_clean"], r["off_success_clean"], r["def_success_clean"],
+                    r["off_yards_clean"], r["def_yards_clean"],
                 )
             )
 
@@ -131,8 +151,9 @@ def sync_pbp_stats(start_season: int, end_season: int):
                 off_success_rate, off_yards_play, pass_rate, def_epa_play, def_success_rate, def_yards_play,
                 third_down_pct, third_down_pct_def,
                 red_zone_td_pct, red_zone_td_pct_def, turnovers_lost, turnovers_forced, turnover_margin,
-                points_for, points_against, updated_at
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                points_for, points_against, updated_at,
+                off_epa_clean, def_epa_clean, off_success_clean, def_success_clean, off_yards_clean, def_yards_clean
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT(season, week, team) DO UPDATE SET
                 plays_offense = excluded.plays_offense, off_epa_play = excluded.off_epa_play,
                 off_epa_pass = excluded.off_epa_pass, off_epa_rush = excluded.off_epa_rush,
@@ -142,7 +163,10 @@ def sync_pbp_stats(start_season: int, end_season: int):
                 red_zone_td_pct = excluded.red_zone_td_pct, red_zone_td_pct_def = excluded.red_zone_td_pct_def,
                 turnovers_lost = excluded.turnovers_lost, turnovers_forced = excluded.turnovers_forced,
                 turnover_margin = excluded.turnover_margin, points_for = excluded.points_for,
-                points_against = excluded.points_against, updated_at = excluded.updated_at
+                points_against = excluded.points_against, updated_at = excluded.updated_at,
+                off_epa_clean = excluded.off_epa_clean, def_epa_clean = excluded.def_epa_clean,
+                off_success_clean = excluded.off_success_clean, def_success_clean = excluded.def_success_clean,
+                off_yards_clean = excluded.off_yards_clean, def_yards_clean = excluded.def_yards_clean
             """,
             rows,
         )

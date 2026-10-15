@@ -41,7 +41,9 @@ export function Sidebar() {
         <div className="px-5 py-6 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2 font-display text-lg font-bold tracking-tight text-[var(--text)]">
             <LogoMark className="w-6 h-6 shrink-0 text-[var(--accent)]" bg="var(--card)" />
-            PICK<span className="text-[var(--accent)]">SIX</span>
+            <span>
+              PICK<span className="text-[var(--accent)]">SIX</span>
+            </span>
           </Link>
           <button
             onClick={toggleTheme}
@@ -100,7 +102,9 @@ export function Sidebar() {
         <div className="px-4 py-3 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-1.5 font-display text-base font-bold tracking-tight text-[var(--text)]">
             <LogoMark className="w-5 h-5 shrink-0 text-[var(--accent)]" bg="var(--bg)" />
-            PICK<span className="text-[var(--accent)]">SIX</span>
+            <span>
+              PICK<span className="text-[var(--accent)]">SIX</span>
+            </span>
           </Link>
           <div className="flex items-center gap-3">
             <button onClick={toggleTheme} className="text-[var(--text-muted)]">

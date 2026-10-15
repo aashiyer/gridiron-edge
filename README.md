@@ -93,7 +93,8 @@ python -m scripts.train_total_model    # same, for the Over/Under model
 | `db_compat_pg.py` | Adapter so psycopg2 (Postgres) supports the same `row["col"]`-style access and `?`-placeholder SQL every query in this codebase is written with. Also batches bulk inserts via `execute_values`. |
 | `auth.py` | Password hashing, JWT issuing/verification, the `get_current_user`/`require_admin` FastAPI dependencies. Admin access is identity-based (`ADMIN_EMAILS` env var), not a stored role. |
 | `analysis.py` | The recommendation engine — scores every game on SU/ATS/Total independently from ~20 signals, returns a lean + plain-English reasons per market. See its module docstring for the full signal list. |
-| `power_ranking.py` | GEI — the opponent-adjusted power ranking. See its module docstring for the full weighted-composite design. |
+| `power_ranking.py` | GEI v3 — the opponent-adjusted power ranking, in points vs. an average team. See its module docstring for the design. |
+| `gei_backtest.py` | Scores GEI settings by how well ratings from earlier games predict later margins (`python -m backend.gei_backtest [--set NAME=value] [--sweep NAME=v1,v2]`; set `GEI_LOCAL_DB` to a SQLite copy to avoid hitting the live database). |
 | `features.py` | Extracts the feature vector the trained models (`scripts/train_*.py`) are fit on, from the same signal functions `analysis.py` uses — so training never drifts from what the live heuristic actually computes. |
 | `team_efficiency.py` | Recent-form efficiency aggregates (EPA/play, NextGen Stats) read by both `analysis.py` and `features.py`. |
 | `roster_continuity.py` | Weights a past season's results by how much of the *current* roster was already on the team that year — discounts a rebuilt team's old history. |

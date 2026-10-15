@@ -60,6 +60,12 @@ _PICKS_MIGRATIONS = [
 _TEAM_STATS_MIGRATIONS = [
     ("off_yards_play", "REAL"),
     ("def_yards_play", "REAL"),
+    ("off_epa_clean", "REAL"),
+    ("def_epa_clean", "REAL"),
+    ("off_success_clean", "REAL"),
+    ("def_success_clean", "REAL"),
+    ("off_yards_clean", "REAL"),
+    ("def_yards_clean", "REAL"),
 ]
 
 _QB_STARTERS_MIGRATIONS = [

@@ -1,52 +1,30 @@
-"""Gridiron Efficiency Index (GEI) v2 — the app's own power ranking, built
-to replace ESPN FPI as the "how good is this team, really" number used
-everywhere else in the app.
+"""Gridiron Efficiency Index (GEI) v3 — the app's own power ranking: how good
+the football a team has played is, in points better or worse than an average
+team (the difference between two teams' GEI is their neutral-field spread,
+before the ~2 point home edge).
 
-Real DVOA can't be sourced (Football Outsiders' methodology and data are
-proprietary, not published anywhere free) — by explicit choice, GEI doesn't
-try to imitate a "DVOA slot": opponent-adjustment IS the whole methodology
-here, same idea as DVOA, just this app's own computation.
+Every choice here was scored by gei_backtest.py: rate teams using only earlier
+games, then check how well the ratings predict each later game's real margin.
 
-Design, one team-game at a time:
-  1. Every game produces one z-scored composite margin: EPA/play
-     differential (the best single predictor available), offensive and
-     defensive yards/play (offense weighted far more than defense — yards
-     allowed is a much noisier signal than yards gained), point margin
-     (which is what "wins and losses" collapses to in continuous form — a
-     14-point win and a 1-point win are both "wins," but they aren't the
-     same evidence of quality, and pure win/loss would rank a "successful"
-     result the same as a lucky one), NextGen Stats average time to throw
-     (offense — a longer time to throw reads as a clean pocket letting
-     routes develop, not indecision; explicit design call, weighted heavily
-     per an explicit ask that this matter a lot), and three more defensive
-     terms beyond EPA/yards allowed — success rate, 3rd-down conversion
-     rate, and red-zone TD rate, all allowed, all inverted so higher-z
-     always means better defense.
-  2. That per-game margin gets a WEIGHT, not just a value: road games count
-     more than home games (a good road performance says more about a team
-     than the same performance at home — travel, crowd noise, no
-     home-field officiating edge), and games in real cold/wind/precipitation
-     count more too (survives conditions that flatten a lot of offenses).
-     Weight, not a separate bolted-on "road record" number — a team's
-     rating already reflects the games that were actually hard to be good
-     in, more than the ones that weren't.
-  3. Those weighted per-game margins get opponent-adjusted the same way
-     GEI v1 did: an SRS-style iteration (a team's rating is the weighted
-     average of its game margins, each bumped by that week's opponent's own
-     rating, repeated until it converges) — a good "successful 0-2" grades
-     out ahead of a bad 0-2, and ahead of a bad winning record too, because
-     the SCHEDULE and the MARGIN QUALITY both matter, not just the record
-     column.
-  4. The starting QB's own efficiency (EPA/dropback, from qb_starters) adds
-     a smaller supplementary term on top — smaller because QB play already
-     shows up inside offensive EPA; this only captures the QB-specific
-     signal (CPOE, a QB's own accuracy) that team-level EPA blends with
-     everything else the offense does.
-  5. Current season carries the large majority of the weight. The last 3
-     seasons blend in at a small, recency-decayed weight underneath it — a
-     little benefit of the doubt against small-sample early-season noise
-     and this system's own inevitable human-bias-like quirks, without
-     letting last year's team meaningfully outweigh this year's.
+  1. Each team-game gets a composite z-score: offensive EPA/play, defensive
+     EPA/play allowed, offensive success rate and yards/play (all with garbage
+     time removed — plays that began under 5% win probability for either
+     side), point margin, and a small time-to-throw term. Weights are in
+     WEIGHTS; the situational stats (3rd-down and red-zone defense) and
+     defensive success rate scored no better than noise and are off.
+  2. Home-field advantage is removed from each game's score (HFA_Z) instead of
+     overweighting road games.
+  3. An SRS-style loop opponent-adjusts those scores (a team's rating is the
+     weighted average of its game scores plus its opponents' ratings).
+     Games decay with age (RECENCY_HALF_LIFE_WEEKS) and every rating is
+     shrunk toward the league average (REGULARIZATION_WEIGHT phantom games),
+     so a few early blowouts can't dominate.
+  4. The starting QB adds a small term: his shrunk EPA/dropback pooled over
+     the last three seasons, so one hot game can't swing it.
+  5. Last season's rating (decay-weighted over three seasons) carries weight
+     PRIOR_PSEUDO_GAMES / (PRIOR_PSEUDO_GAMES + games played), fading as the
+     season goes on.
+  6. The result is scaled to points (POINTS_PER_RATING, fit by regression).
 """
 import math
 import statistics
@@ -55,27 +33,36 @@ from backend.ttl_cache import ttl_memo
 
 RECENT_SEASONS = 3
 
-W_EPA = 0.55
-W_OFF_YPP = 0.10
-W_DEF_YPP = 0.05
-W_MARGIN = 0.05
+WEIGHTS = {
+    "off_epa": 0.30,
+    "def_epa": 0.25,
+    "off_success": 0.10,
+    "def_success": 0.0,
+    "off_yards": 0.05,
+    "def_yards": 0.0,
+    "margin": 0.25,
+    "time_to_throw": 0.05,
+    "third_down_def": 0.0,
+    "red_zone_def": 0.0,
+}
 
-W_TIME_TO_THROW = 0.15
+USE_CLEAN_STATS = True
 
-W_DEF_SUCCESS_RATE = 0.05
-W_THIRD_DOWN_DEF = 0.03
-W_RED_ZONE_DEF = 0.02
+HFA_Z = 0.08
 
-ROAD_WEIGHT = 1.25
-INCLEMENT_WEIGHT = 1.15
+POINTS_PER_RATING = 21.6
 
-W_QB = 0.12
+W_QB = 0.03
 
-CURRENT_SEASON_WEIGHT = 0.85
-PRIOR_SEASONS_WEIGHT = 0.15
+PRIOR_PSEUDO_GAMES = 3
 PRIOR_SEASON_DECAY = [3, 2, 1]
 
-REGULARIZATION_WEIGHT = 5.0
+REGULARIZATION_WEIGHT = 8.0
+
+RECENCY_HALF_LIFE_WEEKS = 8.0
+
+QB_PRIOR_DROPBACKS = 300
+QB_PRIOR_SEASON_WEIGHT = 0.6
 
 
 def _zscore_map(values: dict) -> dict:
@@ -93,16 +80,14 @@ def _zscore_map(values: dict) -> dict:
     return {k: (v - mean) / stdev for k, v in present.items()}
 
 
-def _inclement(temp, wind, precip_pct, roof) -> bool:
-    if roof == "dome":
-        return False
-    if temp is not None and temp <= 40:
-        return True
-    if wind is not None and wind >= 15:
-        return True
-    if precip_pct is not None and precip_pct >= 50:
-        return True
-    return False
+def _stat_select() -> str:
+    if USE_CLEAN_STATS:
+        return """COALESCE(off_epa_clean, off_epa_play) AS off_epa_play, COALESCE(def_epa_clean, def_epa_play) AS def_epa_play,
+                  COALESCE(off_yards_clean, off_yards_play) AS off_yards_play, COALESCE(def_yards_clean, def_yards_play) AS def_yards_play,
+                  COALESCE(off_success_clean, off_success_rate) AS off_success_rate, COALESCE(def_success_clean, def_success_rate) AS def_success_rate,
+                  third_down_pct_def, red_zone_td_pct_def"""
+    return """off_epa_play, def_epa_play, off_yards_play, def_yards_play, off_success_rate, def_success_rate,
+              third_down_pct_def, red_zone_td_pct_def"""
 
 
 def _season_game_rows(conn, season: int, through_week: int):
@@ -111,16 +96,13 @@ def _season_game_rows(conn, season: int, through_week: int):
     season through `through_week`."""
     games = conn.execute(
         """
-        SELECT game_id, week, home_team, away_team, final_home_score, final_away_score,
-               temp, wind, precip_pct, roof
+        SELECT game_id, week, home_team, away_team, final_home_score, final_away_score
         FROM games WHERE season = ? AND week <= ? AND status = 'final'
         """,
         (season, through_week),
     ).fetchall()
     stats_rows = conn.execute(
-        """SELECT week, team, off_epa_play, def_epa_play, off_yards_play, def_yards_play,
-                  def_success_rate, third_down_pct_def, red_zone_td_pct_def
-           FROM team_stats WHERE season = ? AND week <= ?""",
+        f"SELECT week, team, {_stat_select()} FROM team_stats WHERE season = ? AND week <= ?",
         (season, through_week),
     ).fetchall()
     stats = {(r["week"], r["team"]): r for r in stats_rows}
@@ -130,27 +112,26 @@ def _season_game_rows(conn, season: int, through_week: int):
     ).fetchall()
     ngs = {(r["week"], r["team"]): r["avg_time_to_throw"] for r in ngs_rows}
 
+    latest_week = max((g["week"] for g in games), default=0)
     rows = []
     for g in games:
-        inclement = _inclement(g["temp"], g["wind"], g["precip_pct"], g["roof"])
+        recency = 0.5 ** ((latest_week - g["week"]) / RECENCY_HALF_LIFE_WEEKS) if RECENCY_HALF_LIFE_WEEKS else 1.0
         for team, opp, is_home in ((g["home_team"], g["away_team"], True), (g["away_team"], g["home_team"], False)):
             s = stats.get((g["week"], team))
             margin = (g["final_home_score"] - g["final_away_score"]) if is_home else (g["final_away_score"] - g["final_home_score"])
-            weight = 1.0
-            if not is_home:
-                weight *= ROAD_WEIGHT
-            if inclement:
-                weight *= INCLEMENT_WEIGHT
+            weight = recency
             rows.append(
                 {
                     "week": g["week"],
                     "team": team,
                     "opponent": opp,
+                    "is_home": is_home,
                     "margin": margin,
                     "off_epa_play": s["off_epa_play"] if s else None,
                     "def_epa_play": s["def_epa_play"] if s else None,
                     "off_yards_play": s["off_yards_play"] if s else None,
                     "def_yards_play": s["def_yards_play"] if s else None,
+                    "off_success_rate": s["off_success_rate"] if s else None,
                     "def_success_rate": s["def_success_rate"] if s else None,
                     "third_down_pct_def": s["third_down_pct_def"] if s else None,
                     "red_zone_td_pct_def": s["red_zone_td_pct_def"] if s else None,
@@ -161,73 +142,50 @@ def _season_game_rows(conn, season: int, through_week: int):
     return rows
 
 
+def _component_values(r: dict) -> dict:
+    def neg(v):
+        return None if v is None else -v
+
+    return {
+        "off_epa": r["off_epa_play"],
+        "def_epa": neg(r["def_epa_play"]),
+        "off_success": r["off_success_rate"],
+        "def_success": neg(r["def_success_rate"]),
+        "off_yards": r["off_yards_play"],
+        "def_yards": neg(r["def_yards_play"]),
+        "margin": r["margin"],
+        "time_to_throw": r["avg_time_to_throw"],
+        "third_down_def": neg(r["third_down_pct_def"]),
+        "red_zone_def": neg(r["red_zone_td_pct_def"]),
+    }
+
+
 def _composite_margins(rows: list) -> dict:
-    """(week, team) -> weighted composite z-score margin for that one game,
-    plus the raw weight (returned separately so the SRS iteration can use
-    it) — z-scoring happens league-wide across every team-game in the
-    season, not per-team, so the scale is consistent for opponent
-    adjustment."""
-    epa_diff, off_ypp, def_ypp_allowed, margin = {}, {}, {}, {}
-    time_to_throw, def_success_allowed, third_down_allowed, red_zone_allowed = {}, {}, {}, {}
+    """(week, team) -> weighted composite z-score for that one game. Each
+    ingredient is z-scored league-wide across every team-game in the season
+    (not per-team) so the scale is consistent for opponent adjustment; the
+    composite is the WEIGHTS-weighted average of whichever ingredients that
+    team-game has, then nudged by HFA_Z (home credit removed, road credit
+    added)."""
+    by_component: dict = {name: {} for name in WEIGHTS}
     for r in rows:
         key = (r["week"], r["team"])
-        if r["off_epa_play"] is not None and r["def_epa_play"] is not None:
-            epa_diff[key] = r["off_epa_play"] - r["def_epa_play"]
-        if r["off_yards_play"] is not None:
-            off_ypp[key] = r["off_yards_play"]
-        if r["def_yards_play"] is not None:
-            def_ypp_allowed[key] = -r["def_yards_play"]
-        margin[key] = r["margin"]
-        if r["avg_time_to_throw"] is not None:
-            time_to_throw[key] = r["avg_time_to_throw"]
-        if r["def_success_rate"] is not None:
-            def_success_allowed[key] = -r["def_success_rate"]
-        if r["third_down_pct_def"] is not None:
-            third_down_allowed[key] = -r["third_down_pct_def"]
-        if r["red_zone_td_pct_def"] is not None:
-            red_zone_allowed[key] = -r["red_zone_td_pct_def"]
-
-    z_epa = _zscore_map(epa_diff)
-    z_off = _zscore_map(off_ypp)
-    z_def = _zscore_map(def_ypp_allowed)
-    z_margin = _zscore_map(margin)
-    z_ttt = _zscore_map(time_to_throw)
-    z_def_success = _zscore_map(def_success_allowed)
-    z_third_down_def = _zscore_map(third_down_allowed)
-    z_red_zone_def = _zscore_map(red_zone_allowed)
+        for name, value in _component_values(r).items():
+            if value is not None and WEIGHTS.get(name):
+                by_component[name][key] = value
+    z = {name: _zscore_map(values) for name, values in by_component.items()}
 
     composite = {}
     for r in rows:
         key = (r["week"], r["team"])
-        parts = []
-        weights = []
-        if key in z_epa:
-            parts.append(z_epa[key] * W_EPA)
-            weights.append(W_EPA)
-        if key in z_off:
-            parts.append(z_off[key] * W_OFF_YPP)
-            weights.append(W_OFF_YPP)
-        if key in z_def:
-            parts.append(z_def[key] * W_DEF_YPP)
-            weights.append(W_DEF_YPP)
-        if key in z_margin:
-            parts.append(z_margin[key] * W_MARGIN)
-            weights.append(W_MARGIN)
-        if key in z_ttt:
-            parts.append(z_ttt[key] * W_TIME_TO_THROW)
-            weights.append(W_TIME_TO_THROW)
-        if key in z_def_success:
-            parts.append(z_def_success[key] * W_DEF_SUCCESS_RATE)
-            weights.append(W_DEF_SUCCESS_RATE)
-        if key in z_third_down_def:
-            parts.append(z_third_down_def[key] * W_THIRD_DOWN_DEF)
-            weights.append(W_THIRD_DOWN_DEF)
-        if key in z_red_zone_def:
-            parts.append(z_red_zone_def[key] * W_RED_ZONE_DEF)
-            weights.append(W_RED_ZONE_DEF)
-        if not weights:
+        total = weight_sum = 0.0
+        for name, weight in WEIGHTS.items():
+            if weight and key in z[name]:
+                total += z[name][key] * weight
+                weight_sum += weight
+        if not weight_sum:
             continue
-        composite[key] = sum(parts) / sum(weights)
+        composite[key] = total / weight_sum + (-HFA_Z if r["is_home"] else HFA_Z)
     return composite
 
 
@@ -267,20 +225,6 @@ def _opponent_adjusted_power_ratings(conn, season: int, through_week: int, itera
         schedule.setdefault(r["team"], []).append((r["week"], r["opponent"]))
         weight_by_key[key] = r["weight"]
 
-    raw_avg = {}
-    for team, games in schedule.items():
-        weighted_sum = 0.0
-        weight_total = 0.0
-        for week, _opp in games:
-            key = (week, team)
-            margin = composite.get(key)
-            if margin is None:
-                continue
-            w = weight_by_key.get(key, 1.0)
-            weighted_sum += margin * w
-            weight_total += w
-        raw_avg[team] = (weighted_sum / weight_total) if weight_total else 0.0
-
     ratings = {team: 0.0 for team in schedule}
     has_data = {team: False for team in schedule}
     for _ in range(iterations):
@@ -298,35 +242,53 @@ def _opponent_adjusted_power_ratings(conn, season: int, through_week: int, itera
                 weight_total += w
             if weight_total:
                 has_data[team] = True
-                phantom_weight = max(0.0, REGULARIZATION_WEIGHT - weight_total)
-                if phantom_weight:
-                    weighted_sum += raw_avg[team] * phantom_weight
-                    weight_total += phantom_weight
-                new_ratings[team] = round(weighted_sum / weight_total, 4)
+                new_ratings[team] = round(weighted_sum / (weight_total + REGULARIZATION_WEIGHT), 4)
             else:
                 new_ratings[team] = 0.0
         ratings = new_ratings
     return {team: (rating if has_data[team] else None) for team, rating in ratings.items()}
 
 
-@ttl_memo("qb_zscores", 600)
-def _qb_zscores(conn, season: int, through_week: int) -> dict:
-    """team -> z-score of its current starter's EPA/dropback (the most
-    recent qb_starters row through this point), league-wide. A team with no
-    qb_starters data yet this season is simply absent, same convention as
-    everywhere else here."""
-    rows = conn.execute(
+@ttl_memo("qb_rows", 600)
+def _qb_rows(conn, first_season: int):
+    return conn.execute(
         """
-        SELECT team, epa_dropback FROM qb_starters
-        WHERE season = ? AND week <= ? AND epa_dropback IS NOT NULL
-        ORDER BY week DESC
+        SELECT season, week, team, player_id, dropbacks, epa_dropback FROM qb_starters
+        WHERE season >= ? AND epa_dropback IS NOT NULL AND dropbacks > 0 AND player_id IS NOT NULL
         """,
-        (season, through_week),
+        (first_season,),
     ).fetchall()
+
+
+def _qb_zscores(conn, season: int, through_week: int) -> dict:
+    """team -> z-score of its current starter's shrunk EPA/dropback. The
+    starter is whoever led the team's most recent game; his value pools this
+    season (full weight) with the two before it (QB_PRIOR_SEASON_WEIGHT) and
+    is pulled toward the league average by QB_PRIOR_DROPBACKS phantom
+    dropbacks, so a hot or cold single game can't swing it."""
+    rows = [r for r in _qb_rows(conn, season - 2) if r["season"] < season or (r["season"] == season and r["week"] <= through_week)]
+    if not rows:
+        return {}
+    current = [r for r in rows if r["season"] == season]
+    league_dropbacks = sum(r["dropbacks"] for r in current)
+    league_mean = sum(r["epa_dropback"] * r["dropbacks"] for r in current) / league_dropbacks if league_dropbacks else 0.0
+
     latest: dict = {}
+    for r in current:
+        if r["team"] not in latest or r["week"] > latest[r["team"]]["week"]:
+            latest[r["team"]] = r
+
+    by_player: dict = {}
     for r in rows:
-        latest.setdefault(r["team"], r["epa_dropback"])
-    return _zscore_map(latest)
+        weight = 1.0 if r["season"] == season else QB_PRIOR_SEASON_WEIGHT
+        num, den = by_player.get(r["player_id"], (0.0, 0.0))
+        by_player[r["player_id"]] = (num + weight * r["dropbacks"] * r["epa_dropback"], den + weight * r["dropbacks"])
+
+    values = {}
+    for team, r in latest.items():
+        num, den = by_player[r["player_id"]]
+        values[team] = (num + QB_PRIOR_DROPBACKS * league_mean) / (den + QB_PRIOR_DROPBACKS)
+    return _zscore_map(values)
 
 
 def _full_season_ratings(conn, season: int) -> dict:
@@ -379,8 +341,8 @@ def gei_breakdown(conn, team: str, season: int, through_week: int) -> dict:
         "qb_epa_dropback_zscore": qb_z.get(team),
         "qb_term_weight": W_QB,
         "prior_seasons": prior,
-        "current_season_weight": CURRENT_SEASON_WEIGHT,
-        "prior_seasons_weight": PRIOR_SEASONS_WEIGHT,
+        "prior_games_pseudo_count": PRIOR_PSEUDO_GAMES,
+        "points_per_rating": POINTS_PER_RATING,
         "final_gei": entry["gei"] if entry else None,
         "rank": entry["rank"] if entry else None,
     }
@@ -416,11 +378,12 @@ def gei_power_ranking(conn, season: int, through_week: int) -> dict:
 
         if prior_weight_total:
             prior_blend = prior_weighted_sum / prior_weight_total
-            final = CURRENT_SEASON_WEIGHT * with_qb + PRIOR_SEASONS_WEIGHT * prior_blend
+            prior_share = PRIOR_PSEUDO_GAMES / (PRIOR_PSEUDO_GAMES + through_week)
+            final = (1 - prior_share) * with_qb + prior_share * prior_blend
         else:
             final = with_qb
 
-        scores[team] = round(final, 4)
+        scores[team] = round(final * POINTS_PER_RATING, 2)
 
     ranked = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
     return {team: {"gei": score, "rank": i + 1} for i, (team, score) in enumerate(ranked)}

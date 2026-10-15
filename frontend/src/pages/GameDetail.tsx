@@ -418,8 +418,8 @@ function TeamStatsSection({
     },
     {
       label: "Gridiron Efficiency Index (rank)",
-      away: awayGei.gei !== null ? `${fmtSigned(awayGei.gei, 3)} (#${awayGei.rank})` : "—",
-      home: homeGei.gei !== null ? `${fmtSigned(homeGei.gei, 3)} (#${homeGei.rank})` : "—",
+      away: awayGei.gei !== null ? `${fmtSigned(awayGei.gei)} (#${awayGei.rank})` : "—",
+      home: homeGei.gei !== null ? `${fmtSigned(homeGei.gei)} (#${homeGei.rank})` : "—",
     },
     {
       label: "Straight Up (L8)",

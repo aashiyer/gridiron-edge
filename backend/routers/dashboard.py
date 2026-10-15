@@ -83,64 +83,6 @@ def dashboard_summary(season: Optional[int] = None, current_user: dict = Depends
     }
 
 
-@router.get("/leaderboard")
-def leaderboard(season: Optional[int] = None, week: Optional[int] = None, current_user: dict = Depends(get_current_user)):
-    """Every user's record side by side, ranked by ATS win% specifically —
-    straight-up stays its own column, never fused into one blended number
-    (totals excluded from ranking entirely, same as the rest of the app's
-    convention). Ties broken by who's actually decided more picks so a 1-0
-    account doesn't outrank a 40-12 one. Auth-gated like everything else —
-    not for public consumption — but deliberately not scoped to the caller,
-    since the whole point is comparing across users.
-
-    season/week scope this to one week's picks instead of the all-time
-    total — standings are meant to reset week to week, not just accumulate
-    forever, same as how the Picker page itself is organized by week."""
-    query = """
-        SELECT p.user_id, u.display_name, p.pick_type, p.result
-        FROM picks p
-        JOIN users u ON u.user_id = p.user_id
-        JOIN games g ON g.game_id = p.game_id
-        WHERE p.result IN ('win', 'loss', 'push') AND p.pick_type IN ('straight_up', 'ats')
-    """
-    params: list = []
-    if season is not None:
-        query += " AND g.season = ?"
-        params.append(season)
-    if week is not None:
-        query += " AND g.week = ?"
-        params.append(week)
-
-    with db_session() as conn:
-        rows = conn.execute(query, params).fetchall()
-
-    by_user: dict = {}
-    for r in rows:
-        by_user.setdefault(r["user_id"], {"display_name": r["display_name"], "rows": []})["rows"].append(r)
-
-    entries = []
-    for user_id, data in by_user.items():
-        decided = data["rows"]
-        su = [r for r in decided if r["pick_type"] == "straight_up"]
-        ats = [r for r in decided if r["pick_type"] == "ats"]
-        entries.append(
-            {
-                "user_id": user_id,
-                "display_name": data["display_name"],
-                "is_you": user_id == current_user["user_id"],
-                "straight_up": _record(su),
-                "ats": _record(ats),
-                "decided_count": len(decided),
-            }
-        )
-
-    entries.sort(key=lambda e: (e["ats"]["win_pct"] if e["ats"]["win_pct"] is not None else -1, e["decided_count"]), reverse=True)
-    for i, e in enumerate(entries):
-        e["rank"] = i + 1
-
-    return {"entries": entries}
-
-
 @router.get("/vs-model")
 def vs_model(current_user: dict = Depends(get_current_user)):
     """Compare your picks to the model's own snapshotted call on the same

@@ -119,18 +119,53 @@ export interface Disagreement {
   final_score: string;
 }
 
-export interface LeaderboardEntry {
+export type PickMarket = "straight_up" | "ats" | "total";
+
+export interface PickCell {
+  selection: string;
+  line: number | null;
+  result: "win" | "loss" | "push" | "pending";
+}
+
+export interface WeekAward {
+  week: number;
+  win_pct: number;
+  su: Record;
+  ats: Record;
+}
+
+export interface StandingsEntry {
   rank: number;
   user_id: number;
   display_name: string;
   is_you: boolean;
   straight_up: Record;
   ats: Record;
-  decided_count: number;
+  total: Record;
+  games_picked: number;
+  games_available: number;
+  best_week: WeekAward | null;
+  worst_week: WeekAward | null;
+  week_wins: number;
 }
 
-export interface LeaderboardResponse {
-  entries: LeaderboardEntry[];
+export interface StandingsResponse {
+  season: number;
+  weeks: { week: number; games: number; complete: boolean }[];
+  current_week: number | null;
+  entries: StandingsEntry[];
+}
+
+export interface WeekBoard {
+  season: number;
+  week: number;
+  complete: boolean;
+  users: { user_id: number; display_name: string; is_you: boolean }[];
+  games: Game[];
+  picks: { [gameId: string]: { [userId: string]: { [market: string]: PickCell } } };
+  records: {
+    [userId: string]: { straight_up: Record; ats: Record; total: Record; games_picked: number };
+  };
 }
 
 export interface VsModelSummary {

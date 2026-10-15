@@ -107,7 +107,8 @@ python -m scripts.train_total_model    # same, for the Over/Under model
 | `routers/auth.py` | `/api/auth/*` — signup, login, `/me`, password/display-name change, favorite teams. |
 | `routers/games.py` | `/api/games/*` — game list/detail, recommendations, power rankings. Literal routes are registered before `/{game_id}` to avoid FastAPI's catch-all route-ordering trap. |
 | `routers/picks.py` | `/api/picks/*` — create/update/delete picks, grading (win/loss/push) against closing lines. |
-| `routers/dashboard.py` | `/api/dashboard/*` — the current user's SU/ATS/Total records, the leaderboard, and the vs-model comparison. |
+| `routers/dashboard.py` | `/api/dashboard/*` — the current user's SU/ATS/Total records (optionally for one season), tendencies, and the vs-model comparison. |
+| `routers/leaderboard.py` | `/api/leaderboard/standings` (season standings, best/worst week, week wins) and `/api/leaderboard/week` (every user's picks for each game in a week, with results and week records). Picks are visible to everyone before kickoff. |
 | `routers/teams.py` | `/api/teams` — static team metadata list. |
 | `routers/admin.py` | `/api/admin/*` — registered-user list, admin-only (`require_admin`). |
 | `routers/tick.py` | HTTP-triggered equivalent of `python -m ingestion.tick`, kept for any ad-hoc/manual trigger over HTTP; the scheduled path is GitHub Actions running `ingestion/tick.py` directly. |
@@ -170,7 +171,7 @@ python -m scripts.train_total_model    # same, for the Over/Under model
 | `pages/GameDetail.tsx` | One game's full stats, odds history, and picks. |
 | `pages/Record.tsx` | The current user's SU/ATS/Total record, by week and by team. |
 | `pages/VsModel.tsx` | Side-by-side user-vs-model record, and every pick where they disagreed. |
-| `pages/Leaderboard.tsx` | Every user's record, ranked by ATS win%. |
+| `pages/Leaderboard.tsx` | Season standings on top, then a week grid of every user's pick per game (ATS / SU / O/U tabs, colored by result) with an expandable game-by-game breakdown. |
 | `pages/PowerRankings.tsx` | The full GEI-ranked league table. |
 | `pages/Settings.tsx` | Display name, favorite team, password change. |
 | `pages/AdminUsers.tsx` | Registered-user list — admin-only, rendered only when `user.is_admin`. |

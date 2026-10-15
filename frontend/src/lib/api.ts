@@ -7,7 +7,8 @@ import type {
   GameDetail,
   TeamMeta,
   VsModelSummary,
-  LeaderboardResponse,
+  StandingsResponse,
+  WeekBoard,
   User,
   AuthResponse,
   PowerRankingEntry,
@@ -135,12 +136,8 @@ export const api = {
   dashboard: (params: { season?: number } = {}) =>
     req<DashboardSummary>(`/dashboard${params.season ? `?season=${params.season}` : ""}`),
   vsModel: () => req<VsModelSummary>(`/dashboard/vs-model`),
-  leaderboard: (params: { season?: number; week?: number } = {}) => {
-    const qs = new URLSearchParams();
-    if (params.season) qs.set("season", String(params.season));
-    if (params.week) qs.set("week", String(params.week));
-    return req<LeaderboardResponse>(`/dashboard/leaderboard?${qs.toString()}`);
-  },
+  leaderboardStandings: (season: number) => req<StandingsResponse>(`/leaderboard/standings?season=${season}`),
+  leaderboardWeek: (season: number, week: number) => req<WeekBoard>(`/leaderboard/week?season=${season}&week=${week}`),
   teams: () => req<TeamMeta[]>(`/teams`),
 
   adminUsers: () => req<AdminUser[]>(`/admin/users`),

@@ -1,193 +1,179 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
-import type { Game, LeaderboardEntry } from "../lib/types";
+import type { Game, PickCell, PickMarket, Record as PickRecord, StandingsEntry, StandingsResponse, WeekAward, WeekBoard } from "../lib/types";
+import { fmtSpread } from "../components/GamePickCard";
+import { TeamLogo } from "../components/TeamBadge";
 
-function fmtRecord(r: { wins: number; losses: number; pushes: number }) {
-  return `${r.wins}-${r.losses}${r.pushes ? `-${r.pushes}` : ""}`;
-}
+const MARKETS: { key: PickMarket; label: string }[] = [
+  { key: "ats", label: "ATS" },
+  { key: "straight_up", label: "SU" },
+  { key: "total", label: "O/U" },
+];
 
-function currentWeekFor(allGames: Game[]): number | null {
-  if (!allGames.length) return null;
-  const upcoming = allGames.filter((g) => g.status !== "final");
-  if (upcoming.length) return Math.min(...upcoming.map((g) => g.week));
-  return Math.max(...allGames.map((g) => g.week));
-}
+const PLAYOFF_LABELS: { [week: number]: string } = { 19: "Wild Card", 20: "Divisional", 21: "Conference", 22: "Super Bowl" };
 
-const RANK_STYLES: Record<number, string> = {
+const RESULT_CELL: { [result: string]: string } = {
+  win: "bg-emerald-500/15 text-emerald-500 border-emerald-500/30",
+  loss: "bg-rose-500/15 text-rose-500 border-rose-500/30",
+  push: "bg-amber-500/15 text-amber-500 border-amber-500/30",
+  pending: "bg-[var(--surface)] text-[var(--text)] border-[var(--border)]",
+};
+
+const RANK_STYLES: { [rank: number]: string } = {
   1: "text-amber-400",
   2: "text-[var(--text-muted)]",
   3: "text-orange-400",
 };
 
+function weekLabel(week: number) {
+  return PLAYOFF_LABELS[week] ?? `Week ${week}`;
+}
+
+function fmtRecord(r: PickRecord) {
+  return `${r.wins}-${r.losses}${r.pushes ? `-${r.pushes}` : ""}`;
+}
+
+function fmtPct(p: number | null) {
+  return p === null || p === undefined ? "—" : `${p}%`;
+}
+
+function cellLabel(market: PickMarket, pick: PickCell) {
+  if (market === "straight_up") return pick.selection;
+  if (market === "ats") return `${pick.selection}${pick.line !== null ? ` ${fmtSpread(pick.line)}` : ""}`;
+  return `${pick.selection === "over" ? "O" : "U"}${pick.line !== null ? ` ${pick.line}` : ""}`;
+}
+
 export function LeaderboardPage() {
-  const [games, setGames] = useState<Game[]>([]);
   const [currentSeason, setCurrentSeason] = useState<number | null>(null);
   const [season, setSeason] = useState<number | null>(null);
+  const [standings, setStandings] = useState<StandingsResponse | null>(null);
   const [week, setWeek] = useState<number | null>(null);
-  const [weekResolved, setWeekResolved] = useState(false);
-  const [autoWeek, setAutoWeek] = useState(true);
-  const [entries, setEntries] = useState<LeaderboardEntry[] | null>(null);
-  const requestId = useRef(0);
+  const [board, setBoard] = useState<WeekBoard | null>(null);
+  const [market, setMarket] = useState<PickMarket>("ats");
+  const [openGame, setOpenGame] = useState<string | null>(null);
 
   useEffect(() => {
     api.seasons().then((list) => {
       const latest = list.length ? Math.max(...list) : new Date().getFullYear();
       setCurrentSeason(latest);
-      setSeason((s) => s ?? latest);
+      setSeason(latest);
     });
   }, []);
 
   useEffect(() => {
     if (season === null) return;
-    if (autoWeek) setWeekResolved(false);
-    api.games({ season }).then((g) => {
-      setGames(g);
-      if (autoWeek) {
-        const live = currentWeekFor(g);
-        setWeek(live);
-      }
-      setWeekResolved(true);
+    let cancelled = false;
+    setStandings(null);
+    setBoard(null);
+    api.leaderboardStandings(season).then((r) => {
+      if (cancelled) return;
+      setStandings(r);
+      setWeek(r.current_week);
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      cancelled = true;
+    };
   }, [season]);
 
   useEffect(() => {
-    if (!weekResolved || season === null) return;
-    const id = ++requestId.current;
-    setEntries(null);
-    api.leaderboard({ season, week: week ?? undefined }).then((r) => {
-      if (id === requestId.current) setEntries(r.entries);
+    if (season === null || week === null) return;
+    let cancelled = false;
+    setBoard(null);
+    setOpenGame(null);
+    api.leaderboardWeek(season, week).then((r) => {
+      if (!cancelled) setBoard(r);
     });
-  }, [season, week, weekResolved]);
+    return () => {
+      cancelled = true;
+    };
+  }, [season, week]);
 
-  const availableWeeks = useMemo(() => Array.from(new Set(games.map((g) => g.week))).sort((a, b) => a - b), [games]);
+  const weeks = standings?.weeks ?? [];
+  const weekIndex = weeks.findIndex((w) => w.week === week);
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+    <div className="max-w-6xl mx-auto px-3 sm:px-4 py-6 sm:py-8 flex flex-col gap-8">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-[var(--text)]">Leaderboard</h1>
-          <p className="text-sm text-[var(--text-muted)] mt-1">Ranked by ATS win%. Straight-up shown separately.</p>
+          <p className="text-sm text-[var(--text-muted)] mt-1">Season standings, then every pick, game by game. Ranked by ATS win%.</p>
         </div>
         {currentSeason !== null && season !== null && (
-          <div className="flex gap-2 items-center">
-            <select
-              value={season}
-              onChange={(e) => {
-                setAutoWeek(true);
-                setSeason(Number(e.target.value));
-              }}
-              className="input"
-            >
-              {[currentSeason, currentSeason - 1, currentSeason - 2].map((s) => (
-                <option key={s} value={s}>
-                  {s} Season
-                </option>
-              ))}
-            </select>
-            <select
-              value={week ?? "all"}
-              onChange={(e) => {
-                setAutoWeek(false);
-                setWeek(e.target.value === "all" ? null : Number(e.target.value));
-              }}
-              className="input"
-            >
-              {availableWeeks.map((w) => (
-                <option key={w} value={w}>
-                  Week {w}
-                </option>
-              ))}
-              <option value="all">All Time</option>
-            </select>
-            {(season !== currentSeason || !autoWeek) && (
-              <button
-                onClick={() => {
-                  setAutoWeek(true);
-                  if (season !== currentSeason) setSeason(currentSeason);
-                  else setWeek(currentWeekFor(games));
-                }}
-                className="text-xs font-medium text-[var(--accent)] hover:text-[var(--accent)]/80 px-2 py-1.5"
-              >
-                ↻ Jump to current week
-              </button>
-            )}
-          </div>
+          <select value={season} onChange={(e) => setSeason(Number(e.target.value))} className="input">
+            {[currentSeason, currentSeason - 1, currentSeason - 2].map((s) => (
+              <option key={s} value={s}>
+                {s} Season
+              </option>
+            ))}
+          </select>
         )}
       </div>
 
-      {entries === null && <div className="text-[var(--text-muted)] text-sm">Loading…</div>}
+      <section>
+        <h2 className="text-sm font-bold uppercase tracking-widest text-[var(--text-muted)] mb-3">Season Standings</h2>
+        {!standings && <div className="text-sm text-[var(--text-muted)]">Loading…</div>}
+        {standings && standings.entries.length === 0 && <EmptyNote text="No picks this season yet." />}
+        {standings && standings.entries.length > 0 && <StandingsTable entries={standings.entries} />}
+      </section>
 
-      {entries !== null && entries.length === 0 && (
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm p-8 text-center text-[var(--text-muted)] text-sm">
-          No graded picks {week !== null ? "for this week" : "yet"} — check back once games are final.
-        </div>
-      )}
-
-      {entries !== null && entries.length > 0 && (
-        <>
-
-          <div className="hidden sm:block rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm overflow-hidden">
-            <div className="grid grid-cols-[2.5rem_1fr_5rem_4rem_5rem_4rem] gap-2 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-faint)] border-b border-[var(--border)]">
-              <span>#</span>
-              <span>Player</span>
-              <span className="text-right">SU</span>
-              <span className="text-right">SU%</span>
-              <span className="text-right">ATS</span>
-              <span className="text-right">ATS%</span>
-            </div>
-            <div className="flex flex-col divide-y divide-[var(--border)]">
-              {entries.map((e) => (
-                <div
-                  key={e.user_id}
-                  className={`grid grid-cols-[2.5rem_1fr_5rem_4rem_5rem_4rem] gap-2 px-4 py-3 items-center ${
-                    e.is_you ? "bg-[var(--accent)]/[0.06]" : ""
-                  }`}
-                >
-                  <span className={`font-display font-bold text-sm ${RANK_STYLES[e.rank] ?? "text-[var(--text-faint)]"}`}>{e.rank}</span>
-                  <span className="text-sm font-medium text-[var(--text)] truncate flex items-center gap-2">
-                    {e.display_name}
-                    {e.is_you && <YouBadge />}
-                  </span>
-                  <span className="text-sm text-[var(--text-muted)] text-right tabular-nums">{fmtRecord(e.straight_up)}</span>
-                  <span className="text-sm text-[var(--text-muted)] text-right tabular-nums">
-                    {e.straight_up.win_pct != null ? `${e.straight_up.win_pct}%` : "—"}
-                  </span>
-                  <span className="text-sm text-[var(--text-muted)] text-right tabular-nums">{fmtRecord(e.ats)}</span>
-                  <span className="text-sm font-semibold text-[var(--text)] text-right tabular-nums">
-                    {e.ats.win_pct != null ? `${e.ats.win_pct}%` : "—"}
-                  </span>
-                </div>
+      <section>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => weekIndex > 0 && setWeek(weeks[weekIndex - 1].week)}
+              disabled={weekIndex <= 0}
+              aria-label="Previous week"
+              className="h-9 w-9 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--text)] disabled:opacity-40"
+            >
+              ‹
+            </button>
+            <select value={week ?? ""} onChange={(e) => setWeek(Number(e.target.value))} className="input">
+              {weeks.map((w) => (
+                <option key={w.week} value={w.week}>
+                  {weekLabel(w.week)}
+                  {w.complete ? " ✓" : ""}
+                </option>
               ))}
-            </div>
+            </select>
+            <button
+              onClick={() => weekIndex >= 0 && weekIndex < weeks.length - 1 && setWeek(weeks[weekIndex + 1].week)}
+              disabled={weekIndex < 0 || weekIndex >= weeks.length - 1}
+              aria-label="Next week"
+              className="h-9 w-9 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--text)] disabled:opacity-40"
+            >
+              ›
+            </button>
           </div>
-
-
-          <div className="sm:hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm overflow-hidden divide-y divide-[var(--border)]">
-            {entries.map((e) => (
-              <div key={e.user_id} className={`flex items-center gap-3 px-4 py-3 ${e.is_you ? "bg-[var(--accent)]/[0.06]" : ""}`}>
-                <span className={`font-display font-bold text-sm w-5 shrink-0 text-center ${RANK_STYLES[e.rank] ?? "text-[var(--text-faint)]"}`}>
-                  {e.rank}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-[var(--text)] truncate">{e.display_name}</span>
-                    {e.is_you && <YouBadge />}
-                  </div>
-                  <div className="text-xs text-[var(--text-muted)] mt-0.5 tabular-nums">
-                    SU {fmtRecord(e.straight_up)} ({e.straight_up.win_pct != null ? `${e.straight_up.win_pct}%` : "—"}) · ATS{" "}
-                    {fmtRecord(e.ats)}
-                  </div>
-                </div>
-                <span className="text-base font-semibold text-[var(--text)] text-right tabular-nums shrink-0">
-                  {e.ats.win_pct != null ? `${e.ats.win_pct}%` : "—"}
-                </span>
-              </div>
+          <div role="tablist" aria-label="Market" className="inline-flex rounded-xl border border-[var(--border)] bg-[var(--surface)] p-0.5">
+            {MARKETS.map((m) => (
+              <button
+                key={m.key}
+                role="tab"
+                aria-selected={market === m.key}
+                onClick={() => setMarket(m.key)}
+                className={`px-3.5 py-1.5 rounded-[10px] text-sm font-medium transition-colors ${
+                  market === m.key ? "bg-[var(--accent)] text-[var(--accent-text)] shadow-sm" : "text-[var(--text-muted)] hover:text-[var(--text)]"
+                }`}
+              >
+                {m.label}
+              </button>
             ))}
           </div>
-        </>
-      )}
+        </div>
+
+        {!board && <div className="text-sm text-[var(--text-muted)]">Loading…</div>}
+        {board && board.users.length === 0 && <EmptyNote text="Nobody has picked this season yet." />}
+        {board && board.users.length > 0 && (
+          <WeekGrid board={board} market={market} openGame={openGame} onToggle={(id) => setOpenGame(openGame === id ? null : id)} />
+        )}
+      </section>
     </div>
+  );
+}
+
+function EmptyNote({ text }: { text: string }) {
+  return (
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm p-8 text-center text-[var(--text-muted)] text-sm">{text}</div>
   );
 }
 
@@ -196,5 +182,249 @@ function YouBadge() {
     <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--accent)] bg-[var(--accent)]/10 border border-[var(--accent)]/20 rounded-full px-1.5 py-0.5 shrink-0">
       You
     </span>
+  );
+}
+
+function AwardCell({ award, good }: { award: WeekAward | null; good: boolean }) {
+  if (!award) return <span className="text-[var(--text-faint)]">—</span>;
+  return (
+    <span title={`SU ${fmtRecord(award.su)} · ATS ${fmtRecord(award.ats)}`} className="tabular-nums whitespace-nowrap">
+      <span className="text-[var(--text-faint)] text-xs">Wk {award.week} · </span>
+      <span className={`font-semibold ${good ? "text-emerald-500" : "text-rose-500"}`}>{award.win_pct}%</span>
+    </span>
+  );
+}
+
+const YOU_TINT = "linear-gradient(color-mix(in srgb, var(--accent) 7%, transparent), color-mix(in srgb, var(--accent) 7%, transparent))";
+
+function StandingsTable({ entries }: { entries: StandingsEntry[] }) {
+  return (
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm overflow-x-auto">
+      <table className="w-full min-w-[720px] text-sm">
+        <thead>
+          <tr className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-faint)] border-b border-[var(--border)] whitespace-nowrap">
+            <th className="sticky left-0 z-10 bg-[var(--card)] text-left px-4 py-2.5">Player</th>
+            <th className="text-right px-3 py-2.5">ATS</th>
+            <th className="text-right px-3 py-2.5">SU</th>
+            <th className="text-right px-3 py-2.5">O/U</th>
+            <th className="text-right px-3 py-2.5">Picked</th>
+            <th className="text-right px-3 py-2.5">Best week</th>
+            <th className="text-right px-3 py-2.5">Worst week</th>
+            <th className="text-right px-4 py-2.5">Wk wins</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-[var(--border)] whitespace-nowrap">
+          {entries.map((e) => {
+            const tint = e.is_you ? { backgroundImage: YOU_TINT } : undefined;
+            return (
+              <tr key={e.user_id}>
+                <td style={tint} className="sticky left-0 z-10 bg-[var(--card)] px-4 py-3 font-medium text-[var(--text)]">
+                  <span className="flex items-center gap-2.5">
+                    <span className={`font-display font-bold w-4 text-center ${RANK_STYLES[e.rank] ?? "text-[var(--text-faint)]"}`}>{e.rank}</span>
+                    {e.display_name}
+                    {e.is_you && <YouBadge />}
+                  </span>
+                </td>
+                <td style={tint} className="px-3 py-3 text-right tabular-nums text-[var(--text)]">
+                  <span className="font-semibold">{fmtPct(e.ats.win_pct)}</span>
+                  <span className="text-[var(--text-muted)] ml-1.5">{fmtRecord(e.ats)}</span>
+                </td>
+                <td style={tint} className="px-3 py-3 text-right tabular-nums text-[var(--text-muted)]">
+                  {fmtRecord(e.straight_up)} <span className="text-[var(--text-faint)]">({fmtPct(e.straight_up.win_pct)})</span>
+                </td>
+                <td style={tint} className="px-3 py-3 text-right tabular-nums text-[var(--text-muted)]">{fmtRecord(e.total)}</td>
+                <td style={tint} className="px-3 py-3 text-right tabular-nums text-[var(--text-muted)]">
+                  {e.games_picked}/{e.games_available}
+                </td>
+                <td style={tint} className="px-3 py-3 text-right">
+                  <AwardCell award={e.best_week} good />
+                </td>
+                <td style={tint} className="px-3 py-3 text-right">
+                  <AwardCell award={e.worst_week} good={false} />
+                </td>
+                <td style={tint} className="px-4 py-3 text-right tabular-nums font-semibold text-[var(--text)]">{e.week_wins}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function kickoffLabel(g: Game) {
+  if (g.status === "final") return `Final ${g.final_away_score}-${g.final_home_score}`;
+  if (!g.kickoff_time) return "TBD";
+  const d = new Date(g.kickoff_time);
+  return isNaN(d.getTime()) ? g.kickoff_time : d.toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" });
+}
+
+function WeekGrid({
+  board,
+  market,
+  openGame,
+  onToggle,
+}: {
+  board: WeekBoard;
+  market: PickMarket;
+  openGame: string | null;
+  onToggle: (gameId: string) => void;
+}) {
+  const leaders = useMemo(() => {
+    const best = Math.max(...board.users.map((u) => board.records[String(u.user_id)]?.[market].win_pct ?? -1));
+    return new Set(board.users.filter((u) => best >= 0 && (board.records[String(u.user_id)]?.[market].win_pct ?? -1) === best).map((u) => u.user_id));
+  }, [board, market]);
+
+  return (
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm overflow-x-auto">
+      <table className="w-full text-sm border-separate border-spacing-0" style={{ minWidth: 190 + board.users.length * 96 }}>
+        <thead>
+          <tr className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-faint)]">
+            <th className="sticky left-0 z-10 bg-[var(--card)] text-left px-3 py-2.5 border-b border-[var(--border)]">Game</th>
+            {board.users.map((u) => (
+              <th key={u.user_id} className="px-2 py-2.5 text-center border-b border-[var(--border)]">
+                <span className={`inline-flex items-center gap-1 max-w-[92px] ${u.is_you ? "text-[var(--accent)]" : ""}`}>
+                  {board.complete && leaders.has(u.user_id) && <span title="Won the week">👑</span>}
+                  <span className="truncate">{u.display_name}</span>
+                </span>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {board.games.map((g) => (
+            <Fragment key={g.game_id}>
+              <tr className="cursor-pointer hover:bg-[var(--surface-hover)]" onClick={() => onToggle(g.game_id)}>
+                <td className="sticky left-0 z-10 bg-[var(--card)] px-3 py-2 border-b border-[var(--border)]">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`text-[10px] text-[var(--text-faint)] transition-transform ${openGame === g.game_id ? "rotate-90" : ""}`}>▸</span>
+                    <TeamLogo team={g.away} size={20} className="w-5 h-5" />
+                    <span className="text-xs font-semibold text-[var(--text)]">{g.away.abbr}</span>
+                    <span className="text-[10px] text-[var(--text-faint)]">@</span>
+                    <TeamLogo team={g.home} size={20} className="w-5 h-5" />
+                    <span className="text-xs font-semibold text-[var(--text)]">{g.home.abbr}</span>
+                  </div>
+                  <div className="text-[10px] text-[var(--text-muted)] mt-0.5 ml-4">{kickoffLabel(g)}</div>
+                </td>
+                {board.users.map((u) => {
+                  const pick = board.picks[g.game_id]?.[String(u.user_id)]?.[market];
+                  return (
+                    <td key={u.user_id} className="px-1.5 py-2 text-center border-b border-[var(--border)]">
+                      {pick ? (
+                        <span className={`inline-block rounded-md border px-1.5 py-1 text-xs font-semibold tabular-nums whitespace-nowrap ${RESULT_CELL[pick.result]}`}>
+                          {cellLabel(market, pick)}
+                        </span>
+                      ) : (
+                        <span className="text-[var(--text-faint)]" title="No pick">
+                          —
+                        </span>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+              {openGame === g.game_id && (
+                <tr>
+                  <td colSpan={board.users.length + 1} className="bg-[var(--surface)] border-b border-[var(--border)] p-0">
+                    <GameBreakdown game={g} board={board} />
+                  </td>
+                </tr>
+              )}
+            </Fragment>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr className="font-semibold">
+            <td className="sticky left-0 z-10 bg-[var(--card)] px-3 py-3 text-xs uppercase tracking-wide text-[var(--text-muted)]">Week record</td>
+            {board.users.map((u) => {
+              const rec = board.records[String(u.user_id)]?.[market];
+              return (
+                <td key={u.user_id} className="px-1.5 py-3 text-center tabular-nums">
+                  <div className="text-[var(--text)]">{rec ? fmtRecord(rec) : "—"}</div>
+                  <div className="text-[10px] text-[var(--text-faint)] font-normal">{rec ? fmtPct(rec.win_pct) : ""}</div>
+                </td>
+              );
+            })}
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  );
+}
+
+function GameBreakdown({ game, board }: { game: Game; board: WeekBoard }) {
+  const spread = game.current_spread ?? game.home_spread_close;
+  const total = game.current_total ?? game.total_close;
+  const missing = board.users.filter((u) => !board.picks[game.game_id]?.[String(u.user_id)]);
+
+  const columns: { market: PickMarket; title: string; sides: [string, string]; sideLabels: [string, string] }[] = [
+    { market: "straight_up", title: "Straight up", sides: [game.away_team, game.home_team], sideLabels: [game.away.abbr, game.home.abbr] },
+    { market: "ats", title: "Against the spread", sides: [game.away_team, game.home_team], sideLabels: [game.away.abbr, game.home.abbr] },
+    { market: "total", title: "Total", sides: ["over", "under"], sideLabels: ["Over", "Under"] },
+  ];
+
+  return (
+    <div className="p-4 flex flex-col gap-4 text-left">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[var(--text-muted)]">
+        {spread !== null && (
+          <span>
+            Spread: {game.home.abbr} {fmtSpread(spread)}
+          </span>
+        )}
+        {total !== null && <span>Total: {total}</span>}
+        {game.status === "final" && (
+          <span className="font-semibold text-[var(--text)]">
+            Final: {game.away.abbr} {game.final_away_score} – {game.home.abbr} {game.final_home_score}
+          </span>
+        )}
+        {missing.length > 0 && <span className="text-[var(--text-faint)]">No picks: {missing.map((u) => u.display_name).join(", ")}</span>}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {columns.map((col) => {
+          const sideRows = col.sides.map((side) =>
+            board.users
+              .map((u) => ({ user: u, pick: board.picks[game.game_id]?.[String(u.user_id)]?.[col.market] }))
+              .filter((r) => r.pick && r.pick.selection === side)
+          );
+          const count = sideRows[0].length + sideRows[1].length;
+          return (
+            <div key={col.market} className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-faint)] mb-2">{col.title}</div>
+              {count === 0 ? (
+                <div className="text-xs text-[var(--text-faint)]">No picks</div>
+              ) : (
+                <>
+                  <div className="flex h-1.5 rounded-full overflow-hidden bg-[var(--surface)] mb-2.5">
+                    <div className="bg-[var(--accent)]/60" style={{ width: `${(sideRows[0].length / count) * 100}%` }} />
+                    <div className="bg-[var(--accent)]" style={{ width: `${(sideRows[1].length / count) * 100}%` }} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {sideRows.map((rows, i) => (
+                      <div key={col.sides[i]}>
+                        <div className="text-xs font-semibold text-[var(--text)] mb-1">
+                          {col.sideLabels[i]} <span className="text-[var(--text-faint)] font-normal">{rows.length}</span>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          {rows.map(({ user, pick }) => (
+                            <span
+                              key={user.user_id}
+                              className={`inline-flex items-center justify-between gap-1 rounded-md border px-1.5 py-0.5 text-xs ${RESULT_CELL[pick!.result]}`}
+                            >
+                              <span className="truncate">{user.display_name}</span>
+                              <span className="font-bold">{pick!.result === "win" ? "✓" : pick!.result === "loss" ? "✗" : pick!.result === "push" ? "P" : ""}</span>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }

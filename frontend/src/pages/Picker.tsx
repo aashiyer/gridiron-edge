@@ -235,11 +235,8 @@ export function Picker() {
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-4">
+      <div className="mb-4">
         <ViewToggle view={view} onChange={changeView} />
-        {view === "percent" && (
-          <span className="text-xs text-[var(--text-faint)]">Market-implied probabilities from Kalshi, refreshed every minute.</span>
-        )}
       </div>
 
       {loading && <div className="text-[var(--text-muted)] text-sm">Loading slate…</div>}

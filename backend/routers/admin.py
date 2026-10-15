@@ -1,6 +1,7 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
-from backend.auth import RequireAdmin
+from backend.auth import RequireAdmin, hash_password
 from backend.database import db_session
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -20,3 +21,23 @@ def list_users(_admin: dict = RequireAdmin):
             """
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+class PasswordResetRequest(BaseModel):
+    new_password: str
+
+
+@router.post("/users/{user_id}/reset-password")
+def reset_user_password(user_id: int, payload: PasswordResetRequest, _admin: dict = RequireAdmin):
+    """Set another user's password — admin-only."""
+    if len(payload.new_password) < 8:
+        raise HTTPException(status_code=400, detail="new password must be at least 8 characters")
+    with db_session() as conn:
+        row = conn.execute("SELECT email FROM users WHERE user_id = ?", (user_id,)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="user not found")
+        conn.execute(
+            "UPDATE users SET password_hash = ? WHERE user_id = ?",
+            (hash_password(payload.new_password), user_id),
+        )
+    return {"status": "ok", "email": row["email"]}

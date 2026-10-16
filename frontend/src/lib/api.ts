@@ -141,4 +141,9 @@ export const api = {
   teams: () => req<TeamMeta[]>(`/teams`),
 
   adminUsers: () => req<AdminUser[]>(`/admin/users`),
+  adminResetPassword: (userId: number, newPassword: string) =>
+    req<{ user_id: number; display_name: string; status: string }>(`/admin/users/${userId}/password`, {
+      method: "POST",
+      body: JSON.stringify({ new_password: newPassword }),
+    }),
 };

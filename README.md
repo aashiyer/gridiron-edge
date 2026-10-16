@@ -111,7 +111,7 @@ python -m scripts.train_total_model    # same, for the Over/Under model
 | `routers/dashboard.py` | `/api/dashboard/*` — the current user's SU/ATS/Total records (optionally for one season), tendencies, and the vs-model comparison. |
 | `routers/leaderboard.py` | `/api/leaderboard/standings` (season standings, best/worst week, week wins) and `/api/leaderboard/week` (every user's picks for each game in a week, with results and week records). Picks are visible to everyone before kickoff. |
 | `routers/teams.py` | `/api/teams` — static team metadata list. |
-| `routers/admin.py` | `/api/admin/*` — registered-user list, admin-only (`require_admin`). |
+| `routers/admin.py` | Admin-only (see `ADMIN_EMAILS` in `auth.py`): `/api/admin/users` lists every account, and `/api/admin/users/{id}/password` lets the admin set a new password for any user. |
 | `routers/tick.py` | HTTP-triggered equivalent of `python -m ingestion.tick`, kept for any ad-hoc/manual trigger over HTTP; the scheduled path is GitHub Actions running `ingestion/tick.py` directly. |
 
 ### `ingestion/` — data pipelines

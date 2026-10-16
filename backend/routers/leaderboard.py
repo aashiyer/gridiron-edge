@@ -10,6 +10,7 @@ router = APIRouter(prefix="/api/leaderboard", tags=["leaderboard"])
 
 MIN_DECIDED_FOR_WEEK_AWARDS = 6
 MARKETS = ("straight_up", "ats", "total")
+REQUIRED_MARKETS = ("straight_up", "ats")
 
 
 def _record(picks: list) -> dict:
@@ -21,9 +22,9 @@ def _record(picks: list) -> dict:
 
 
 def _season_picks(conn, season: int) -> list:
-    return conn.execute(
+    rows = conn.execute(
         """
-        SELECT p.user_id, u.display_name, p.game_id, p.pick_type, p.selection, p.line_at_pick_time, p.result, g.week
+        SELECT p.user_id, u.display_name, p.game_id, p.pick_type, p.selection, p.line_at_pick_time, p.result, g.week, g.kickoff_time
         FROM picks p
         JOIN users u ON u.user_id = p.user_id
         JOIN games g ON g.game_id = p.game_id
@@ -31,6 +32,39 @@ def _season_picks(conn, season: int) -> list:
         """,
         (season,),
     ).fetchall()
+    picks = [{**dict(r), "missed": False} for r in rows]
+
+    finals = conn.execute(
+        "SELECT game_id, week, kickoff_time FROM games WHERE season = ? AND status = 'final'", (season,)
+    ).fetchall()
+    have = {(p["user_id"], p["game_id"], p["pick_type"]) for p in picks}
+    names = {p["user_id"]: p["display_name"] for p in picks}
+    first_kickoff: dict = {}
+    for p in picks:
+        if p["pick_type"] in REQUIRED_MARKETS and p["kickoff_time"]:
+            first_kickoff[p["user_id"]] = min(first_kickoff.get(p["user_id"], p["kickoff_time"]), p["kickoff_time"])
+
+    for user_id, start in first_kickoff.items():
+        for g in finals:
+            if g["kickoff_time"] and g["kickoff_time"] < start:
+                continue
+            for pick_type in REQUIRED_MARKETS:
+                if (user_id, g["game_id"], pick_type) not in have:
+                    picks.append(
+                        {
+                            "user_id": user_id,
+                            "display_name": names[user_id],
+                            "game_id": g["game_id"],
+                            "pick_type": pick_type,
+                            "selection": None,
+                            "line_at_pick_time": None,
+                            "result": "loss",
+                            "week": g["week"],
+                            "kickoff_time": g["kickoff_time"],
+                            "missed": True,
+                        }
+                    )
+    return picks
 
 
 def _week_status(conn, season: int) -> list:
@@ -89,7 +123,9 @@ def _standings_entries(picks: list, weeks: list, you: int) -> list:
         su = [p for p in mine if p["pick_type"] == "straight_up"]
         ats = [p for p in mine if p["pick_type"] == "ats"]
         total = [p for p in mine if p["pick_type"] == "total"]
-        picked_final = len({p["game_id"] for p in mine if p["week"] in complete_weeks and p["pick_type"] in ("straight_up", "ats")})
+        picked_final = len(
+            {p["game_id"] for p in mine if p["week"] in complete_weeks and p["pick_type"] in REQUIRED_MARKETS and not p["missed"]}
+        )
         entries.append(
             {
                 "user_id": user_id,
@@ -142,6 +178,7 @@ def week_board(season: int, week: int, current_user: dict = Depends(get_current_
             "selection": p["selection"],
             "line": p["line_at_pick_time"],
             "result": p["result"],
+            "missed": p["missed"],
         }
 
     records: dict = {}
@@ -151,7 +188,7 @@ def week_board(season: int, week: int, current_user: dict = Depends(get_current_
             "straight_up": _record([p for p in mine if p["pick_type"] == "straight_up"]),
             "ats": _record([p for p in mine if p["pick_type"] == "ats"]),
             "total": _record([p for p in mine if p["pick_type"] == "total"]),
-            "games_picked": len({p["game_id"] for p in mine}),
+            "games_picked": len({p["game_id"] for p in mine if not p["missed"]}),
         }
 
     names = {p["user_id"]: p["display_name"] for p in season_picks}

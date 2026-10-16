@@ -122,9 +122,10 @@ export interface Disagreement {
 export type PickMarket = "straight_up" | "ats" | "total";
 
 export interface PickCell {
-  selection: string;
+  selection: string | null;
   line: number | null;
   result: "win" | "loss" | "push" | "pending";
+  missed: boolean;
 }
 
 export interface WeekAward {

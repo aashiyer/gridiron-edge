@@ -38,6 +38,7 @@ function fmtPct(p: number | null) {
 }
 
 function cellLabel(market: PickMarket, pick: PickCell) {
+  if (pick.missed || pick.selection === null) return "No pick";
   if (market === "straight_up") return pick.selection;
   if (market === "ats") return `${pick.selection}${pick.line !== null ? ` ${fmtSpread(pick.line)}` : ""}`;
   return `${pick.selection === "over" ? "O" : "U"}${pick.line !== null ? ` ${pick.line}` : ""}`;
@@ -97,7 +98,9 @@ export function LeaderboardPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-[var(--text)]">Leaderboard</h1>
-          <p className="text-sm text-[var(--text-muted)] mt-1">Season standings, then every pick, game by game. Ranked by ATS win%.</p>
+          <p className="text-sm text-[var(--text-muted)] mt-1">
+            Season standings, then every pick, game by game. Ranked by ATS win%. A skipped SU or ATS pick counts as a loss once the game is final.
+          </p>
         </div>
         {currentSeason !== null && season !== null && (
           <div className="flex flex-wrap items-center gap-2">
@@ -442,7 +445,8 @@ function WeekGrid({
 function GameBreakdown({ game, board }: { game: Game; board: WeekBoard }) {
   const spread = game.current_spread ?? game.home_spread_close;
   const total = game.current_total ?? game.total_close;
-  const missing = board.users.filter((u) => !board.picks[game.game_id]?.[String(u.user_id)]);
+  const hasRealPick = (userId: number) => Object.values(board.picks[game.game_id]?.[String(userId)] ?? {}).some((p) => !p.missed);
+  const missing = board.users.filter((u) => !hasRealPick(u.user_id));
 
   const columns: { market: PickMarket; title: string; sides: [string, string]; sideLabels: [string, string] }[] = [
     { market: "straight_up", title: "Straight up", sides: [game.away_team, game.home_team], sideLabels: [game.away.abbr, game.home.abbr] },
@@ -464,7 +468,11 @@ function GameBreakdown({ game, board }: { game: Game; board: WeekBoard }) {
             Final: {game.away.abbr} {game.final_away_score} – {game.home.abbr} {game.final_home_score}
           </span>
         )}
-        {missing.length > 0 && <span className="text-[var(--text-faint)]">No picks: {missing.map((u) => u.display_name).join(", ")}</span>}
+        {missing.length > 0 && (
+          <span className="text-[var(--text-faint)]">
+            No picks{game.status === "final" ? " (counted as losses)" : ""}: {missing.map((u) => u.display_name).join(", ")}
+          </span>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">

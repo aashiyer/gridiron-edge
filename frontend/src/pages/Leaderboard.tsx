@@ -50,6 +50,7 @@ export function LeaderboardPage() {
   const [week, setWeek] = useState<number | null>(null);
   const [board, setBoard] = useState<WeekBoard | null>(null);
   const [market, setMarket] = useState<PickMarket>("ats");
+  const [view, setView] = useState<"season" | "week">("season");
   const [openGame, setOpenGame] = useState<string | null>(null);
 
   useEffect(() => {
@@ -99,26 +100,15 @@ export function LeaderboardPage() {
           <p className="text-sm text-[var(--text-muted)] mt-1">Season standings, then every pick, game by game. Ranked by ATS win%.</p>
         </div>
         {currentSeason !== null && season !== null && (
-          <select value={season} onChange={(e) => setSeason(Number(e.target.value))} className="input">
-            {[currentSeason, currentSeason - 1, currentSeason - 2].map((s) => (
-              <option key={s} value={s}>
-                {s} Season
-              </option>
-            ))}
-          </select>
-        )}
-      </div>
-
-      <section>
-        <h2 className="text-sm font-bold uppercase tracking-widest text-[var(--text-muted)] mb-3">Season Standings</h2>
-        {!standings && <div className="text-sm text-[var(--text-muted)]">Loading…</div>}
-        {standings && standings.entries.length === 0 && <EmptyNote text="No picks this season yet." />}
-        {standings && standings.entries.length > 0 && <StandingsTable entries={standings.entries} />}
-      </section>
-
-      <section>
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <select value={season} onChange={(e) => setSeason(Number(e.target.value))} className="input">
+              {[currentSeason, currentSeason - 1, currentSeason - 2].map((s) => (
+                <option key={s} value={s}>
+                  {s} Season
+                </option>
+              ))}
+            </select>
+            <div className="flex items-center gap-2">
             <button
               onClick={() => weekIndex > 0 && setWeek(weeks[weekIndex - 1].week)}
               disabled={weekIndex <= 0}
@@ -144,6 +134,44 @@ export function LeaderboardPage() {
               ›
             </button>
           </div>
+          </div>
+        )}
+      </div>
+
+      <section>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <h2 className="text-sm font-bold uppercase tracking-widest text-[var(--text-muted)]">
+            {view === "season" ? "Season Standings" : `${week !== null ? weekLabel(week) : "Week"} Standings`}
+          </h2>
+          <div role="tablist" aria-label="Standings view" className="inline-flex rounded-xl border border-[var(--border)] bg-[var(--surface)] p-0.5">
+            {(["season", "week"] as const).map((v) => (
+              <button
+                key={v}
+                role="tab"
+                aria-selected={view === v}
+                onClick={() => setView(v)}
+                className={`px-3.5 py-1.5 rounded-[10px] text-sm font-medium transition-colors ${
+                  view === v ? "bg-[var(--accent)] text-[var(--accent-text)] shadow-sm" : "text-[var(--text-muted)] hover:text-[var(--text)]"
+                }`}
+              >
+                {v === "season" ? "Season" : "Week"}
+              </button>
+            ))}
+          </div>
+        </div>
+        {view === "season" && !standings && <div className="text-sm text-[var(--text-muted)]">Loading…</div>}
+        {view === "season" && standings && standings.entries.length === 0 && <EmptyNote text="No picks this season yet." />}
+        {view === "season" && standings && standings.entries.length > 0 && <StandingsTable entries={standings.entries} />}
+        {view === "week" && !board && <div className="text-sm text-[var(--text-muted)]">Loading…</div>}
+        {view === "week" && board && board.users.length === 0 && <EmptyNote text="Nobody has picked this season yet." />}
+        {view === "week" && board && board.users.length > 0 && <WeekStandingsTable board={board} />}
+      </section>
+
+      <section>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <h2 className="text-sm font-bold uppercase tracking-widest text-[var(--text-muted)]">
+            {week !== null ? weekLabel(week) : "Week"} Picks
+          </h2>
           <div role="tablist" aria-label="Market" className="inline-flex rounded-xl border border-[var(--border)] bg-[var(--surface)] p-0.5">
             {MARKETS.map((m) => (
               <button
@@ -243,6 +271,65 @@ function StandingsTable({ entries }: { entries: StandingsEntry[] }) {
                   <AwardCell award={e.worst_week} good={false} />
                 </td>
                 <td style={tint} className="px-4 py-3 text-right tabular-nums font-semibold text-[var(--text)]">{e.week_wins}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function WeekStandingsTable({ board }: { board: WeekBoard }) {
+  const rows = board.users
+    .map((u) => ({ user: u, rec: board.records[String(u.user_id)] }))
+    .sort((a, b) => {
+      const pa = a.rec?.ats.win_pct ?? -1;
+      const pb = b.rec?.ats.win_pct ?? -1;
+      if (pb !== pa) return pb - pa;
+      const da = (a.rec?.ats.wins ?? 0) + (a.rec?.ats.losses ?? 0);
+      const db = (b.rec?.ats.wins ?? 0) + (b.rec?.ats.losses ?? 0);
+      return db - da;
+    });
+  const top = rows[0]?.rec?.ats.win_pct ?? null;
+
+  return (
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm overflow-x-auto">
+      <table className="w-full min-w-[560px] text-sm">
+        <thead>
+          <tr className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-faint)] border-b border-[var(--border)] whitespace-nowrap">
+            <th className="sticky left-0 z-10 bg-[var(--card)] text-left px-4 py-2.5">Player</th>
+            <th className="text-right px-3 py-2.5">ATS</th>
+            <th className="text-right px-3 py-2.5">SU</th>
+            <th className="text-right px-3 py-2.5">O/U</th>
+            <th className="text-right px-4 py-2.5">Picked</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-[var(--border)] whitespace-nowrap">
+          {rows.map(({ user, rec }, i) => {
+            const tint = user.is_you ? { backgroundImage: YOU_TINT } : undefined;
+            const leader = top !== null && rec?.ats.win_pct === top;
+            return (
+              <tr key={user.user_id}>
+                <td style={tint} className="sticky left-0 z-10 bg-[var(--card)] px-4 py-3 font-medium text-[var(--text)]">
+                  <span className="flex items-center gap-2.5">
+                    <span className={`font-display font-bold w-4 text-center ${RANK_STYLES[i + 1] ?? "text-[var(--text-faint)]"}`}>{i + 1}</span>
+                    {user.display_name}
+                    {user.is_you && <YouBadge />}
+                    {board.complete && leader && <span title="Won the week">👑</span>}
+                  </span>
+                </td>
+                <td style={tint} className="px-3 py-3 text-right tabular-nums text-[var(--text)]">
+                  <span className="font-semibold">{fmtPct(rec?.ats.win_pct ?? null)}</span>
+                  <span className="text-[var(--text-muted)] ml-1.5">{rec ? fmtRecord(rec.ats) : "—"}</span>
+                </td>
+                <td style={tint} className="px-3 py-3 text-right tabular-nums text-[var(--text-muted)]">
+                  {rec ? fmtRecord(rec.straight_up) : "—"} <span className="text-[var(--text-faint)]">({fmtPct(rec?.straight_up.win_pct ?? null)})</span>
+                </td>
+                <td style={tint} className="px-3 py-3 text-right tabular-nums text-[var(--text-muted)]">{rec ? fmtRecord(rec.total) : "—"}</td>
+                <td style={tint} className="px-4 py-3 text-right tabular-nums text-[var(--text-muted)]">
+                  {rec?.games_picked ?? 0}/{board.games.length}
+                </td>
               </tr>
             );
           })}

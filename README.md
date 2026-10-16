@@ -172,7 +172,7 @@ python -m scripts.train_total_model    # same, for the Over/Under model
 | `pages/GameDetail.tsx` | One game's full stats, odds history, and picks. |
 | `pages/Record.tsx` | The current user's SU/ATS/Total record, by week and by team. |
 | `pages/VsModel.tsx` | Side-by-side user-vs-model record, and every pick where they disagreed. |
-| `pages/Leaderboard.tsx` | Season standings on top, then a week grid of every user's pick per game (ATS / SU / O/U tabs, colored by result) with an expandable game-by-game breakdown. |
+| `pages/Leaderboard.tsx` | Season / week standings toggle on top, then a week grid of every user's pick per game (ATS / SU / O/U tabs, colored by result) with an expandable game-by-game breakdown. |
 | `pages/PowerRankings.tsx` | The full GEI-ranked league table. |
 | `pages/Settings.tsx` | Display name, favorite team, password change. |
 | `pages/AdminUsers.tsx` | Registered-user list — admin-only, rendered only when `user.is_admin`. |

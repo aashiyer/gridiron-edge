@@ -24,7 +24,7 @@ def _record(picks: list) -> dict:
 def _season_picks(conn, season: int) -> list:
     rows = conn.execute(
         """
-        SELECT p.user_id, u.display_name, p.game_id, p.pick_type, p.selection, p.line_at_pick_time, p.result, g.week, g.kickoff_time
+        SELECT p.user_id, u.display_name, p.game_id, p.pick_type, p.selection, COALESCE(p.graded_line, p.line_at_pick_time) AS line_at_pick_time, p.result, g.week, g.kickoff_time
         FROM picks p
         JOIN users u ON u.user_id = p.user_id
         JOIN games g ON g.game_id = p.game_id

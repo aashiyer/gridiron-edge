@@ -179,6 +179,7 @@ def create_pick(pick: PickCreate, current_user: dict = Depends(get_current_user)
                    line_at_pick_time = excluded.line_at_pick_time,
                    stake = excluded.stake,
                    result = 'pending',
+                   graded_line = NULL,
                    notes = excluded.notes,
                    created_at = excluded.created_at,
                    model_lean = excluded.model_lean,
@@ -229,14 +230,29 @@ def delete_pick(pick_id: int, current_user: dict = Depends(get_current_user)):
     return {"deleted": pick_id}
 
 
-def _grade_pick(pick_row, game_row) -> Optional[str]:
+def closing_line_for(pick_row, game_row) -> Optional[float]:
+    """The line a pick is graded against: the game's closing line from the
+    picked side's point of view (spread) or the closing total, so nobody gains
+    or loses from when they happened to pick."""
+    if pick_row["pick_type"] == "ats":
+        close = game_row["home_spread_close"]
+        if close is None:
+            return None
+        return close if pick_row["selection"] == game_row["home_team"] else -close
+    if pick_row["pick_type"] == "total":
+        return game_row["total_close"]
+    return None
+
+
+def _grade_pick(pick_row, game_row, line=None) -> Optional[str]:
     if game_row["status"] != "final" or game_row["final_home_score"] is None:
         return None
     home_score = game_row["final_home_score"]
     away_score = game_row["final_away_score"]
     pick_type = pick_row["pick_type"]
     selection = pick_row["selection"]
-    line = pick_row["line_at_pick_time"]
+    if line is None:
+        line = pick_row["line_at_pick_time"]
 
     if pick_type == "straight_up":
         if home_score == away_score:
@@ -287,13 +303,19 @@ def grade_pending_picks():
 
             updates = {}
             if pick["result"] == "pending":
-                outcome = _grade_pick(pick, game)
+                line = closing_line_for(pick, game)
+                if line is None:
+                    line = pick["line_at_pick_time"]
+                outcome = _grade_pick(pick, game, line)
                 if outcome:
                     updates["result"] = outcome
+                    if pick["pick_type"] in ("ats", "total"):
+                        updates["graded_line"] = line
 
             if pick["model_result"] == "pending" and pick["model_lean"]:
                 model_as_pick = {"pick_type": pick["pick_type"], "selection": pick["model_lean"], "line_at_pick_time": pick["model_line"]}
-                model_outcome = _grade_pick(model_as_pick, game)
+                model_line = closing_line_for(model_as_pick, game)
+                model_outcome = _grade_pick(model_as_pick, game, model_line if model_line is not None else pick["model_line"])
                 if model_outcome:
                     updates["model_result"] = model_outcome
 

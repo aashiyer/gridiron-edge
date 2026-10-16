@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 import openpyxl
 
 from backend.database import db_session
-from backend.routers.picks import grade_pending_picks
+from backend.routers.picks import _grade_pick, grade_pending_picks
 from backend.teams import TEAMS
 
 NICKNAMES = {info["name"].split(" ")[-1]: abbr for abbr, info in TEAMS.items()}
@@ -68,7 +68,8 @@ def plan_import(conn, rows, season: int, name: str, user_id: int):
                 created = (datetime.strptime(kickoff, "%Y-%m-%dT%H:%MZ") - timedelta(hours=1)).replace(tzinfo=timezone.utc).isoformat()
             except (TypeError, ValueError):
                 created = datetime.now(timezone.utc).isoformat()
-            inserts.append((user_id, game["game_id"], pick_type, team, line, created))
+            result = _grade_pick({"pick_type": pick_type, "selection": team, "line_at_pick_time": line}, game, line) or "pending"
+            inserts.append((user_id, game["game_id"], pick_type, team, line, created, result))
     return inserts, skipped, unmatched
 
 
@@ -91,12 +92,12 @@ def main():
             inserts, skipped, unmatched = plan_import(conn, rows, args.season, name, user["user_id"])
             print(f"{name}: {len(inserts)} to add, {skipped} already in app (kept), {unmatched} sheet rows unmatched")
             if args.apply:
-                for user_id, game_id, pick_type, team, line, created in inserts:
+                for user_id, game_id, pick_type, team, line, created, result in inserts:
                     conn.execute(
-                        """INSERT INTO picks (user_id, game_id, pick_type, selection, line_at_pick_time, result, notes, created_at, model_result)
-                           VALUES (?, ?, ?, ?, ?, 'pending', 'Imported from picks sheet', ?, 'n_a')
+                        """INSERT INTO picks (user_id, game_id, pick_type, selection, line_at_pick_time, graded_line, result, notes, created_at, model_result)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, 'Imported from picks sheet', ?, 'n_a')
                            ON CONFLICT(user_id, game_id, pick_type) DO NOTHING""",
-                        (user_id, game_id, pick_type, team, line, created),
+                        (user_id, game_id, pick_type, team, line, line, result, created),
                     )
                 conn.commit()
     if args.apply:

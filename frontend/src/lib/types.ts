@@ -58,6 +58,7 @@ export interface Pick {
   pick_type: "straight_up" | "ats" | "total";
   selection: string;
   line_at_pick_time: number | null;
+  graded_line: number | null;
   stake: number | null;
   result: "win" | "loss" | "push" | "pending";
   notes: string | null;

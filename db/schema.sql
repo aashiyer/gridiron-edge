@@ -225,6 +225,7 @@ CREATE TABLE IF NOT EXISTS picks (
     pick_type          TEXT NOT NULL,   -- straight_up / ats / total
     selection           TEXT NOT NULL,   -- team abbreviation, or 'over'/'under' for total picks
     line_at_pick_time  REAL,
+    graded_line        REAL,
     stake              REAL,
     result             TEXT NOT NULL DEFAULT 'pending',  -- win / loss / push / pending
     notes              TEXT,

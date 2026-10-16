@@ -55,6 +55,7 @@ _PICKS_MIGRATIONS = [
     ("model_line", "REAL"),
     ("model_result", "TEXT NOT NULL DEFAULT 'pending'"),
     ("user_id", "INTEGER REFERENCES users(user_id)"),
+    ("graded_line", "REAL"),
 ]
 
 _TEAM_STATS_MIGRATIONS = [

@@ -216,6 +216,8 @@ CREATE TABLE IF NOT EXISTS picks (
     model_result       TEXT NOT NULL DEFAULT 'pending'
 );
 
+ALTER TABLE picks ADD COLUMN IF NOT EXISTS graded_line REAL;
+
 CREATE INDEX IF NOT EXISTS idx_picks_game ON picks(game_id);
 CREATE INDEX IF NOT EXISTS idx_picks_result ON picks(result);
 -- Unlike the SQLite path, this is safe to create unconditionally here: a

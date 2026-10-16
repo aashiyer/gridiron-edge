@@ -18,10 +18,10 @@ function fmtLine(n: number | null): string {
 
 function selectionLabel(p: Pick): string {
   if (p.pick_type === "total") {
-    return `${p.selection === "over" ? "Over" : "Under"}${p.line_at_pick_time !== null ? ` ${p.line_at_pick_time}` : ""}`;
+    return `${p.selection === "over" ? "Over" : "Under"}${(p.graded_line ?? p.line_at_pick_time) !== null ? ` ${p.graded_line ?? p.line_at_pick_time}` : ""}`;
   }
   const abbr = p.selection_meta?.abbr ?? p.selection;
-  return p.pick_type === "ats" && p.line_at_pick_time !== null ? `${abbr} ${fmtLine(p.line_at_pick_time)}` : abbr;
+  return p.pick_type === "ats" && (p.graded_line ?? p.line_at_pick_time) !== null ? `${abbr} ${fmtLine((p.graded_line ?? p.line_at_pick_time) as number)}` : abbr;
 }
 
 function modelTooltip(p: Pick): string | undefined {

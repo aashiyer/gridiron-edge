@@ -99,7 +99,7 @@ export function LeaderboardPage() {
         <div>
           <h1 className="text-2xl font-bold text-[var(--text)]">Leaderboard</h1>
           <p className="text-sm text-[var(--text-muted)] mt-1">
-            Season standings, then every pick, game by game. Ranked by ATS win%. A skipped SU or ATS pick counts as a loss once the game is final.
+            Season standings, then every pick, game by game. Ranked by ATS win%. ATS and totals are graded against the closing line. A skipped SU or ATS pick counts as a loss once the game is final.
           </p>
         </div>
         {currentSeason !== null && season !== null && (

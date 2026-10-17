@@ -183,7 +183,7 @@ export function Picker() {
           <h1 className="text-xl sm:text-2xl font-bold text-[var(--text)]">Pick the Slate</h1>
 
           <p className="hidden sm:block text-sm text-[var(--text-muted)]">
-            Lock in your straight-up, ATS, and total picks before kickoff. ATS and totals are graded against the closing line, so it doesn't matter when you pick.
+            Lock in your straight-up, ATS, and total picks before kickoff. ATS and totals are graded against the closing line, so your pick always follows the current line. Change it if you don't like where it moves.
           </p>
         </div>
         {currentSeason !== null && season !== null && (

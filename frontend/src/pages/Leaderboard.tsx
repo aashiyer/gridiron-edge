@@ -86,8 +86,14 @@ export function LeaderboardPage() {
     api.leaderboardWeek(season, week).then((r) => {
       if (!cancelled) setBoard(r);
     });
+    const id = setInterval(() => {
+      api.leaderboardWeek(season, week).then((r) => {
+        if (!cancelled) setBoard(r);
+      });
+    }, 5 * 60 * 1000);
     return () => {
       cancelled = true;
+      clearInterval(id);
     };
   }, [season, week]);
 
@@ -100,7 +106,7 @@ export function LeaderboardPage() {
         <div>
           <h1 className="text-2xl font-bold text-[var(--text)]">Leaderboard</h1>
           <p className="text-sm text-[var(--text-muted)] mt-1">
-            Season standings, then every pick, game by game. Ranked by ATS win%. ATS and totals are graded against the closing line. A skipped SU or ATS pick counts as a loss once the game is final.
+            Season standings, then every pick, game by game. Ranked by ATS win%. ATS and totals are graded against the closing line, so pending picks always show the current line. A skipped SU or ATS pick counts as a loss once the game is final.
           </p>
         </div>
         {currentSeason !== null && season !== null && (

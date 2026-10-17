@@ -3,6 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends
 
 from backend.auth import get_current_user
+from backend.current_lines import current_lines, display_line
 from backend.database import db_session
 from backend.routers.games import list_games
 
@@ -24,7 +25,7 @@ def _record(picks: list) -> dict:
 def _season_picks(conn, season: int) -> list:
     rows = conn.execute(
         """
-        SELECT p.user_id, u.display_name, u.avatar_version, p.game_id, p.pick_type, p.selection, COALESCE(p.graded_line, p.line_at_pick_time) AS line_at_pick_time, p.result, g.week, g.kickoff_time
+        SELECT p.user_id, u.display_name, u.avatar_version, p.game_id, p.pick_type, p.selection, p.line_at_pick_time, p.graded_line, p.result, g.week, g.kickoff_time, g.home_team
         FROM picks p
         JOIN users u ON u.user_id = p.user_id
         JOIN games g ON g.game_id = p.game_id
@@ -33,6 +34,11 @@ def _season_picks(conn, season: int) -> list:
         (season,),
     ).fetchall()
     picks = [{**dict(r), "missed": False} for r in rows]
+
+    pending_games = list({p["game_id"] for p in picks if p["result"] not in ("win", "loss", "push") and p["pick_type"] != "straight_up"})
+    lines = current_lines(conn, pending_games)
+    for p in picks:
+        p["line_at_pick_time"] = display_line(p, p["home_team"], lines) if p["pick_type"] != "straight_up" else None
 
     finals = conn.execute(
         "SELECT game_id, week, kickoff_time FROM games WHERE season = ? AND status = 'final'", (season,)

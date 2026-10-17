@@ -99,6 +99,7 @@ python -m scripts.train_total_model    # same, for the Over/Under model
 | `team_efficiency.py` | Recent-form efficiency aggregates (EPA/play, NextGen Stats) read by both `analysis.py` and `features.py`. |
 | `roster_continuity.py` | Weights a past season's results by how much of the *current* roster was already on the team that year — discounts a rebuilt team's old history. |
 | `ttl_cache.py` | `ttl_memo` decorator: short-lived in-process cache for read-only lookups repeated across a recommendation refresh, keeping database reads (and Supabase egress) low. |
+| `current_lines.py` | Looks up the current (latest pre-kickoff) spread/total for games and works out the line a pick effectively sits on: pending picks follow the live line, graded picks show the line they were graded at. |
 | `kalshi.py` | Reads Kalshi's public NFL markets (winner, spread ladder, total ladder) and matches them to our games; served by `routers/kalshi.py` for the Picker's Percentage view. |
 | `avatars.py` | Profile-picture processing: decodes an uploaded image, crops it square, resizes to 256 px and re-encodes it as JPEG before it's stored on the user row. |
 | `week_export.py` | Builds the Picker's Instagram export: renders a cover plus picks slides (1080×1350 PNG) for a chosen week and set of people, using WeasyPrint for layout and PyMuPDF to rasterize. |

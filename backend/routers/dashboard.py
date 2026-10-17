@@ -50,7 +50,7 @@ def dashboard_summary(season: Optional[int] = None, current_user: dict = Depends
         team_line = line if p["selection"] == p["home_team"] else -line
         (su_favorite if team_line < 0 else su_underdog).append(p)
     for p in ats:
-        line = p["line_at_pick_time"]
+        line = p["graded_line"] if p["graded_line"] is not None else p["line_at_pick_time"]
         if line is None or line == 0:
             continue
         (ats_laying if line < 0 else ats_taking).append(p)

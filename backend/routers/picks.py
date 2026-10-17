@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from backend.auth import get_current_user
 from backend.database import db_session
+from backend.current_lines import current_lines, display_line
 from backend.teams import team_meta
 from backend.analysis import build_recommendation, cached_recommendation
 
@@ -84,7 +85,14 @@ def list_picks(
 
     with db_session() as conn:
         rows = conn.execute(query, params).fetchall()
-    return [_serialize_pick(r) for r in rows]
+        pending_games = list({r["game_id"] for r in rows if r["result"] not in ("win", "loss", "push") and r["pick_type"] != "straight_up"})
+        lines = current_lines(conn, pending_games)
+    out = []
+    for r in rows:
+        d = _serialize_pick(r)
+        d["display_line"] = display_line(d, d["home_team"], lines) if d["pick_type"] != "straight_up" else None
+        out.append(d)
+    return out
 
 
 def _model_snapshot(game_id: str, pick_type: str, conn=None):

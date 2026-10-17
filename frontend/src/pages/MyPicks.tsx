@@ -16,12 +16,26 @@ function fmtLine(n: number | null): string {
   return n > 0 ? `+${n}` : `${n}`;
 }
 
+function shownLine(p: Pick): number | null {
+  return p.display_line ?? p.graded_line ?? p.line_at_pick_time;
+}
+
 function selectionLabel(p: Pick): string {
+  const line = shownLine(p);
   if (p.pick_type === "total") {
-    return `${p.selection === "over" ? "Over" : "Under"}${(p.graded_line ?? p.line_at_pick_time) !== null ? ` ${p.graded_line ?? p.line_at_pick_time}` : ""}`;
+    return `${p.selection === "over" ? "Over" : "Under"}${line !== null ? ` ${line}` : ""}`;
   }
   const abbr = p.selection_meta?.abbr ?? p.selection;
-  return p.pick_type === "ats" && (p.graded_line ?? p.line_at_pick_time) !== null ? `${abbr} ${fmtLine((p.graded_line ?? p.line_at_pick_time) as number)}` : abbr;
+  return p.pick_type === "ats" && line !== null ? `${abbr} ${fmtLine(line)}` : abbr;
+}
+
+function lineTooltip(p: Pick): string | undefined {
+  if (p.pick_type === "straight_up") return undefined;
+  if (p.result === "pending") {
+    const moved = p.line_at_pick_time !== null && shownLine(p) !== p.line_at_pick_time;
+    return `Follows the current line until kickoff, then graded at the closing line.${moved ? ` You first picked at ${p.pick_type === "ats" ? fmtLine(p.line_at_pick_time) : p.line_at_pick_time}.` : ""}`;
+  }
+  return "Graded against the closing line.";
 }
 
 function modelTooltip(p: Pick): string | undefined {
@@ -52,17 +66,19 @@ export function MyPicks() {
   const [picks, setPicks] = useState<Pick[]>([]);
   const [loading, setLoading] = useState(true);
 
-  async function load() {
-    setLoading(true);
+  async function load(silent = false) {
+    if (!silent) setLoading(true);
     try {
       setPicks(await api.picks());
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }
 
   useEffect(() => {
     load();
+    const id = setInterval(() => load(true), 5 * 60 * 1000);
+    return () => clearInterval(id);
   }, []);
 
   async function remove(pickId: number) {
@@ -162,7 +178,7 @@ export function MyPicks() {
                         ✕
                       </button>
                     </div>
-                    <div className={`relative rounded-lg border px-3 py-2 text-sm font-semibold text-center ${chipClasses(p.result)}`}>
+                    <div title={lineTooltip(p)} className={`relative rounded-lg border px-3 py-2 text-sm font-semibold text-center ${chipClasses(p.result)}`}>
                       {selectionLabel(p)}
                       {p.model_lean && (
                         <span

@@ -61,6 +61,7 @@ export interface Pick {
   selection: string;
   line_at_pick_time: number | null;
   graded_line: number | null;
+  display_line: number | null;
   stake: number | null;
   result: "win" | "loss" | "push" | "pending";
   notes: string | null;

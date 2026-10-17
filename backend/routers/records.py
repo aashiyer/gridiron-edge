@@ -47,24 +47,24 @@ def _load_picks(conn, user_id: int, season) -> list:
 
 
 @ttl_memo("records_group", 300)
-def _group_ats(conn) -> dict:
+def _group_counts(conn) -> dict:
     rows = conn.execute(
         """
-        SELECT p.user_id, g.season,
+        SELECT p.pick_type, p.user_id, g.season,
                SUM(CASE WHEN p.result = 'win' THEN 1 ELSE 0 END) AS wins,
                SUM(CASE WHEN p.result = 'loss' THEN 1 ELSE 0 END) AS losses
         FROM picks p JOIN games g ON g.game_id = p.game_id
-        WHERE p.pick_type = 'ats' AND p.result IN ('win', 'loss')
-        GROUP BY p.user_id, g.season
+        WHERE p.pick_type IN ('ats', 'straight_up') AND p.result IN ('win', 'loss')
+        GROUP BY p.pick_type, p.user_id, g.season
         """
     ).fetchall()
-    return {(r["user_id"], r["season"]): (r["wins"], r["losses"]) for r in rows}
+    return {(r["pick_type"], r["user_id"], r["season"]): (r["wins"], r["losses"]) for r in rows}
 
 
-def _rank(group: dict, user_id: int, season) -> Optional[dict]:
+def _rank(group: dict, pick_type: str, user_id: int, season) -> Optional[dict]:
     totals: dict = {}
-    for (uid, s), (w, l) in group.items():
-        if season is not None and s != season:
+    for (kind, uid, s), (w, l) in group.items():
+        if kind != pick_type or (season is not None and s != season):
             continue
         cw, cl = totals.get(uid, (0, 0))
         totals[uid] = (cw + w, cl + l)
@@ -176,22 +176,30 @@ def _build(picks: list, user_id: int, season, group: dict) -> dict:
     best_ats, worst_ats = week_marks("ats")
     best_su, worst_su = week_marks("straight_up")
 
-    trend, cum_units, window = [], 0.0, []
+    trend, cum_units, cum_su_diff, ats_window, su_window = [], 0.0, 0, [], []
     for key in sorted(by_week):
         rows = by_week[key]
         week_ats = [p for p in rows if p["pick_type"] == "ats"]
+        week_su = [p for p in rows if p["pick_type"] == "straight_up"]
         cum_units += _units(week_ats)
-        window = (window + [p for p in week_ats if p["result"] in ("win", "loss")])[-ROLLING_WINDOW:]
-        rolling = round(sum(1 for p in window if p["result"] == "win") / len(window) * 100, 1) if len(window) >= 10 else None
+        cum_su_diff += sum(1 for p in week_su if p["result"] == "win") - sum(1 for p in week_su if p["result"] == "loss")
+        ats_window = (ats_window + [p for p in week_ats if p["result"] in ("win", "loss")])[-ROLLING_WINDOW:]
+        su_window = (su_window + [p for p in week_su if p["result"] in ("win", "loss")])[-ROLLING_WINDOW:]
+
+        def rolling(window):
+            return round(sum(1 for p in window if p["result"] == "win") / len(window) * 100, 1) if len(window) >= 10 else None
+
         trend.append(
             {
                 "season": key[0],
                 "week": key[1],
                 "label": _week_label(*key),
                 "cumulative_units": round(cum_units, 2),
-                "rolling_ats_pct": rolling,
+                "rolling_ats_pct": rolling(ats_window),
+                "su_wins_over_500": cum_su_diff,
+                "rolling_su_pct": rolling(su_window),
                 "ats": _rec(week_ats),
-                "straight_up": _rec([p for p in rows if p["pick_type"] == "straight_up"]),
+                "straight_up": _rec(week_su),
             }
         )
 
@@ -199,7 +207,16 @@ def _build(picks: list, user_id: int, season, group: dict) -> dict:
     for s in sorted({p["season"] for p in decided}, reverse=True):
         s_ats = [p for p in ats if p["season"] == s]
         s_su = [p for p in su if p["season"] == s]
-        season_rows.append({"season": s, "ats": _rec(s_ats), "ats_units": _units(s_ats), "straight_up": _rec(s_su), "rank": _rank(group, user_id, s)})
+        season_rows.append(
+            {
+                "season": s,
+                "ats": _rec(s_ats),
+                "ats_units": _units(s_ats),
+                "straight_up": _rec(s_su),
+                "rank_ats": _rank(group, "ats", user_id, s),
+                "rank_su": _rank(group, "straight_up", user_id, s),
+            }
+        )
 
     def team_records(rows):
         teams = {}
@@ -213,7 +230,8 @@ def _build(picks: list, user_id: int, season, group: dict) -> dict:
             "ats_units": _units(ats),
             "straight_up": _rec(su),
             "decided_picks": len(decided),
-            "rank": _rank(group, user_id, season),
+            "rank_ats": _rank(group, "ats", user_id, season),
+            "rank_su": _rank(group, "straight_up", user_id, season),
             "best_week_ats": best_ats,
             "worst_week_ats": worst_ats,
             "best_week_su": best_su,
@@ -234,7 +252,7 @@ def records(user_id: Optional[int] = None, season: Optional[int] = None, current
         if not user:
             raise HTTPException(status_code=404, detail="user not found")
         picks = _load_picks(conn, target, season)
-        group = _group_ats(conn)
+        group = _group_counts(conn)
         seasons = [
             r["season"]
             for r in conn.execute(

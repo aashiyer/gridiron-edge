@@ -381,6 +381,8 @@ export interface TrendPoint {
   label: string;
   cumulative_units: number;
   rolling_ats_pct: number | null;
+  su_wins_over_500: number;
+  rolling_su_pct: number | null;
   ats: Record;
   straight_up: Record;
 }
@@ -390,7 +392,8 @@ export interface SeasonRow {
   ats: Record;
   ats_units: number;
   straight_up: Record;
-  rank: { rank: number; of: number } | null;
+  rank_ats: { rank: number; of: number } | null;
+  rank_su: { rank: number; of: number } | null;
 }
 
 export interface SplitGroup {
@@ -409,7 +412,8 @@ export interface RecordsResponse {
     ats_units: number;
     straight_up: Record;
     decided_picks: number;
-    rank: { rank: number; of: number } | null;
+    rank_ats: { rank: number; of: number } | null;
+    rank_su: { rank: number; of: number } | null;
     best_week_ats: WeekMark | null;
     worst_week_ats: WeekMark | null;
     best_week_su: WeekMark | null;

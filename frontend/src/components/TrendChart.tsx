@@ -1,33 +1,36 @@
 import { useRef, useState } from "react";
 import type { TrendPoint } from "../lib/types";
 
-type Mode = "units" | "rolling";
+export type TrendMode = "units" | "rolling_ats" | "su_over" | "rolling_su";
 
 const W = 720;
 const H = 260;
 const PAD = { l: 48, r: 16, t: 22, b: 30 };
-const BREAK_EVEN = 52.4;
 
-function value(p: TrendPoint, mode: Mode): number | null {
-  return mode === "units" ? p.cumulative_units : p.rolling_ats_pct;
-}
+const MODES: { [m in TrendMode]: { value: (p: TrendPoint) => number | null; baseline: number; cumulative: boolean; pct: boolean; label: string } } = {
+  units: { value: (p) => p.cumulative_units, baseline: 0, cumulative: true, pct: false, label: "Cumulative units" },
+  rolling_ats: { value: (p) => p.rolling_ats_pct, baseline: 52.4, cumulative: false, pct: true, label: "Rolling 25-pick ATS win percentage" },
+  su_over: { value: (p) => p.su_wins_over_500, baseline: 0, cumulative: true, pct: false, label: "Straight-up wins over .500" },
+  rolling_su: { value: (p) => p.rolling_su_pct, baseline: 50, cumulative: false, pct: true, label: "Rolling 25-pick straight-up win percentage" },
+};
 
 function niceStep(span: number) {
   const steps = [1, 2, 5, 10, 20, 25, 50, 100];
   return steps.find((s) => span / s <= 6) ?? 100;
 }
 
-export function TrendChart({ points, mode }: { points: TrendPoint[]; mode: Mode }) {
+export function TrendChart({ points, mode }: { points: TrendPoint[]; mode: TrendMode }) {
+  const cfg = MODES[mode];
   const svgRef = useRef<SVGSVGElement>(null);
   const [hover, setHover] = useState<number | null>(null);
 
-  const vals = points.map((p) => value(p, mode)).filter((v): v is number => v !== null);
+  const vals = points.map((p) => cfg.value(p)).filter((v): v is number => v !== null);
   if (points.length < 2 || vals.length < 2) {
     return <div className="text-sm text-[var(--text-muted)] py-8 text-center">Not enough graded picks yet to draw a trend.</div>;
   }
 
-  const lo = Math.min(...vals, mode === "units" ? 0 : BREAK_EVEN);
-  const hi = Math.max(...vals, mode === "units" ? 0 : BREAK_EVEN);
+  const lo = Math.min(...vals, cfg.baseline);
+  const hi = Math.max(...vals, cfg.baseline);
   const step = niceStep(hi - lo || 1);
   const yMin = Math.floor(lo / step) * step - (lo === hi ? step : 0);
   const yMax = Math.ceil(hi / step) * step + (lo === hi ? step : 0);
@@ -40,7 +43,7 @@ export function TrendChart({ points, mode }: { points: TrendPoint[]; mode: Mode 
   let path = "";
   let started = false;
   points.forEach((p, i) => {
-    const v = value(p, mode);
+    const v = cfg.value(p);
     if (v === null) {
       started = false;
       return;
@@ -48,18 +51,18 @@ export function TrendChart({ points, mode }: { points: TrendPoint[]; mode: Mode 
     path += `${started ? "L" : "M"}${x(i)},${y(v)}`;
     started = true;
   });
-  const first = points.findIndex((p) => value(p, mode) !== null);
-  const baseline = mode === "units" ? 0 : BREAK_EVEN;
-  const area = mode === "units" ? `${path}L${x(points.length - 1)},${y(0)}L${x(first)},${y(0)}Z` : "";
+  const first = points.findIndex((p) => cfg.value(p) !== null);
+  const baseline = cfg.baseline;
+  const area = cfg.cumulative ? `${path}L${x(points.length - 1)},${y(0)}L${x(first)},${y(0)}Z` : "";
 
   const boundaries: { index: number; season: number }[] = [];
   points.forEach((p, i) => {
     if (i === 0 || p.season !== points[i - 1].season) boundaries.push({ index: i, season: p.season });
   });
 
-  const fmt = (v: number) => (mode === "units" ? `${v > 0 ? "+" : ""}${v}u` : `${v}%`);
+  const fmt = (v: number) => (cfg.pct ? `${v}%` : mode === "units" ? `${v > 0 ? "+" : ""}${v}u` : `${v > 0 ? "+" : ""}${v}`);
   const active = hover !== null ? points[hover] : null;
-  const activeVal = active ? value(active, mode) : null;
+  const activeVal = active ? cfg.value(active) : null;
 
   function onMove(e: React.PointerEvent<SVGSVGElement>) {
     const rect = svgRef.current?.getBoundingClientRect();
@@ -69,8 +72,8 @@ export function TrendChart({ points, mode }: { points: TrendPoint[]; mode: Mode 
     setHover(Math.min(Math.max(i, 0), points.length - 1));
   }
 
-  const lastVal = value(points[points.length - 1], mode);
-  const positive = mode === "units" ? (lastVal ?? 0) >= 0 : (lastVal ?? 0) >= BREAK_EVEN;
+  const lastVal = cfg.value(points[points.length - 1]);
+  const positive = (lastVal ?? 0) >= cfg.baseline;
   const stroke = positive ? "#22c55e" : "#ef4444";
 
   return (
@@ -81,20 +84,20 @@ export function TrendChart({ points, mode }: { points: TrendPoint[]; mode: Mode 
       onPointerMove={onMove}
       onPointerLeave={() => setHover(null)}
       role="img"
-      aria-label={mode === "units" ? "Cumulative units over time" : "Rolling ATS win percentage over time"}
+      aria-label={`${cfg.label} over time`}
     >
       {ticks.map((v) => (
         <g key={v}>
           <line x1={PAD.l} x2={W - PAD.r} y1={y(v)} y2={y(v)} stroke="var(--border)" strokeWidth={1} />
           <text x={PAD.l - 8} y={y(v) + 4} textAnchor="end" fontSize={11} fill="var(--text-faint)">
-            {mode === "units" ? v : `${v}%`}
+            {cfg.pct ? `${v}%` : v}
           </text>
         </g>
       ))}
       <line x1={PAD.l} x2={W - PAD.r} y1={y(baseline)} y2={y(baseline)} stroke="var(--text-faint)" strokeWidth={1.25} strokeDasharray="4 4" />
-      {mode === "rolling" && (
+      {cfg.pct && (
         <text x={W - PAD.r} y={y(baseline) - 5} textAnchor="end" fontSize={10} fill="var(--text-faint)">
-          break-even 52.4%
+          {mode === "rolling_ats" ? "break-even 52.4%" : "50%"}
         </text>
       )}
       {boundaries.slice(1).map((b) => (
@@ -120,8 +123,9 @@ export function TrendChart({ points, mode }: { points: TrendPoint[]; mode: Mode 
               {active.label} · {fmt(activeVal)}
             </text>
             <text x={10} y={34} fontSize={10.5} fill="var(--text-muted)">
-              That week: ATS {active.ats.wins}-{active.ats.losses}
-              {active.ats.pushes ? `-${active.ats.pushes}` : ""}
+              {mode === "units" || mode === "rolling_ats"
+                ? `That week: ATS ${active.ats.wins}-${active.ats.losses}${active.ats.pushes ? `-${active.ats.pushes}` : ""}`
+                : `That week: SU ${active.straight_up.wins}-${active.straight_up.losses}${active.straight_up.pushes ? `-${active.straight_up.pushes}` : ""}`}
             </text>
           </g>
         </g>

@@ -176,7 +176,7 @@ python -m scripts.train_total_model    # same, for the Over/Under model
 | `pages/Picker.tsx` | Make picks for a given week; polls for recommendation-cache warmup on cold games. |
 | `pages/Games.tsx` | Full schedule/results list for a season/week. |
 | `pages/GameDetail.tsx` | One game's full stats, odds history, and picks. |
-| `pages/Record.tsx` | Anyone's record (pick the person and season, or all time): scorecard with units at -110 and group rank, trend chart, season-by-season table, splits (favorites/underdogs, home/road, division, time slot, part of season, spread size) and a by-team grid. Names on the leaderboard link here. |
+| `pages/Record.tsx` | Anyone's record (pick the person and season, or all time). An ATS / Straight-up tab drives the whole page: scorecard (units at -110 for ATS, wins over .500 for SU), group rank, best and worst week, trend chart, season-by-season table, splits (favorites/underdogs, home/road, division, time slot, part of season, spread size) and a by-team grid. Names on the leaderboard link here. |
 | `components/TrendChart.tsx` | SVG line chart of cumulative units or rolling 25-pick ATS % with season markers and hover. |
 | `pages/VsModel.tsx` | Side-by-side user-vs-model record, and every pick where they disagreed. |
 | `pages/Leaderboard.tsx` | Season / week standings toggle on top, then a week grid of every user's pick per game (ATS / SU / O/U tabs, colored by result) with an expandable game-by-game breakdown. |

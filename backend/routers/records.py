@@ -12,7 +12,7 @@ router = APIRouter(prefix="/api/records", tags=["records"])
 
 WIN_UNITS = 100 / 110
 MIN_RANK_DECIDED = 30
-MIN_WEEK_DECIDED = 6
+MIN_WEEK_DECIDED = 8
 ROLLING_WINDOW = 25
 DECIDED = ("win", "loss", "push")
 EASTERN = ZoneInfo("America/New_York")
@@ -156,16 +156,25 @@ def _build(picks: list, user_id: int, season, group: dict) -> dict:
     for p in decided:
         by_week.setdefault((p["season"], p["week"]), []).append(p)
 
-    awards = []
-    for key, rows in by_week.items():
-        if key in pending_weeks:
-            continue
-        rec = _rec(rows)
-        n = rec["wins"] + rec["losses"]
-        if n >= MIN_WEEK_DECIDED:
-            awards.append({"season": key[0], "week": key[1], "label": _week_label(*key), "win_pct": round(rec["wins"] / n * 100, 1), "wins": rec["wins"], "losses": rec["losses"], "pushes": rec["pushes"]})
-    best = max(awards, key=lambda a: (a["win_pct"], a["wins"]), default=None)
-    worst = min(awards, key=lambda a: (a["win_pct"], -a["losses"]), default=None)
+    def week_marks(pick_type: str):
+        per_week: dict = {}
+        for p in decided:
+            if p["pick_type"] == pick_type:
+                per_week.setdefault((p["season"], p["week"]), []).append(p)
+        marks = []
+        for key, rows in per_week.items():
+            if key in pending_weeks:
+                continue
+            rec = _rec(rows)
+            n = rec["wins"] + rec["losses"]
+            if n >= MIN_WEEK_DECIDED:
+                marks.append({"season": key[0], "week": key[1], "label": _week_label(*key), "win_pct": round(rec["wins"] / n * 100, 1), "wins": rec["wins"], "losses": rec["losses"], "pushes": rec["pushes"]})
+        best = max(marks, key=lambda m: (m["win_pct"], m["wins"]), default=None)
+        worst = min(marks, key=lambda m: (m["win_pct"], -m["losses"]), default=None)
+        return best, worst
+
+    best_ats, worst_ats = week_marks("ats")
+    best_su, worst_su = week_marks("straight_up")
 
     trend, cum_units, window = [], 0.0, []
     for key in sorted(by_week):
@@ -205,8 +214,10 @@ def _build(picks: list, user_id: int, season, group: dict) -> dict:
             "straight_up": _rec(su),
             "decided_picks": len(decided),
             "rank": _rank(group, user_id, season),
-            "best_week": best,
-            "worst_week": worst,
+            "best_week_ats": best_ats,
+            "worst_week_ats": worst_ats,
+            "best_week_su": best_su,
+            "worst_week_su": worst_su,
         },
         "trend": trend,
         "season_rows": season_rows,

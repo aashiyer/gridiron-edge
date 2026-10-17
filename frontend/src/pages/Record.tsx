@@ -185,8 +185,10 @@ export function RecordPage() {
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <WeekChip title="Best week" mark={sc.best_week} good />
-          <WeekChip title="Worst week" mark={sc.worst_week} good={false} />
+          <WeekChip title="Best ATS week" mark={sc.best_week_ats} good />
+          <WeekChip title="Worst ATS week" mark={sc.worst_week_ats} good={false} />
+          <WeekChip title="Best straight-up week" mark={sc.best_week_su} good />
+          <WeekChip title="Worst straight-up week" mark={sc.worst_week_su} good={false} />
         </div>
         <p className="text-xs text-[var(--text-faint)]">Break-even against the spread is 52.4% at −110. Only picks you actually made count here; the leaderboard also counts skipped picks as losses.</p>
       </section>

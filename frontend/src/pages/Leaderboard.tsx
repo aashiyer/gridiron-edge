@@ -226,7 +226,7 @@ function YouBadge() {
 function AwardCell({ award, good }: { award: WeekAward | null; good: boolean }) {
   if (!award) return <span className="text-[var(--text-faint)]">—</span>;
   return (
-    <span title={`SU ${fmtRecord(award.su)} · ATS ${fmtRecord(award.ats)}`} className="tabular-nums whitespace-nowrap">
+    <span title={`ATS ${fmtRecord(award.ats)}`} className="tabular-nums whitespace-nowrap">
       <span className="text-[var(--text-faint)] text-xs">Wk {award.week} · </span>
       <span className={`font-semibold ${good ? "text-emerald-500" : "text-rose-500"}`}>{award.win_pct}%</span>
     </span>
@@ -246,9 +246,9 @@ function StandingsTable({ entries }: { entries: StandingsEntry[] }) {
             <th className="text-right px-3 py-2.5">SU</th>
             <th className="text-right px-3 py-2.5">O/U</th>
             <th className="text-right px-3 py-2.5">Picked</th>
-            <th className="text-right px-3 py-2.5">Best week</th>
-            <th className="text-right px-3 py-2.5">Worst week</th>
-            <th className="text-right px-4 py-2.5">Wk wins</th>
+            <th className="text-right px-3 py-2.5">Best ATS wk</th>
+            <th className="text-right px-3 py-2.5">Worst ATS wk</th>
+            <th className="text-right px-4 py-2.5">ATS wk wins</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[var(--border)] whitespace-nowrap">

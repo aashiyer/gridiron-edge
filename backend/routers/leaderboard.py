@@ -10,7 +10,7 @@ from backend.routers.games import list_games
 
 router = APIRouter(prefix="/api/leaderboard", tags=["leaderboard"])
 
-MIN_DECIDED_FOR_WEEK_AWARDS = 6
+MIN_DECIDED_FOR_WEEK_AWARDS = 8
 MARKETS = ("straight_up", "ats", "total")
 REQUIRED_MARKETS = ("straight_up", "ats")
 
@@ -102,7 +102,7 @@ def _standings_entries(picks: list, weeks: list, you: int) -> list:
     for user_id, data in by_user.items():
         per_week: dict = {}
         for p in data["picks"]:
-            if p["week"] in complete_weeks and p["pick_type"] in ("straight_up", "ats"):
+            if p["week"] in complete_weeks and p["pick_type"] == "ats":
                 per_week.setdefault(p["week"], []).append(p)
         weekly[user_id] = per_week
 
@@ -128,9 +128,7 @@ def _standings_entries(picks: list, weeks: list, you: int) -> list:
         if not entries:
             return None
         week, (pct, _, rows) = pick(entries, key=lambda e: (e[1][0], e[1][1]["wins"]))
-        su = _record([r for r in rows if r["pick_type"] == "straight_up"])
-        ats = _record([r for r in rows if r["pick_type"] == "ats"])
-        return {"week": week, "win_pct": round(pct * 100, 1), "su": su, "ats": ats}
+        return {"week": week, "win_pct": round(pct * 100, 1), "ats": _record(rows)}
 
     entries = []
     for user_id, data in by_user.items():

@@ -121,7 +121,6 @@ export interface PickCell {
 export interface WeekAward {
   week: number;
   win_pct: number;
-  su: Record;
   ats: Record;
 }
 
@@ -411,8 +410,10 @@ export interface RecordsResponse {
     straight_up: Record;
     decided_picks: number;
     rank: { rank: number; of: number } | null;
-    best_week: WeekMark | null;
-    worst_week: WeekMark | null;
+    best_week_ats: WeekMark | null;
+    worst_week_ats: WeekMark | null;
+    best_week_su: WeekMark | null;
+    worst_week_su: WeekMark | null;
   };
   trend: TrendPoint[];
   season_rows: SeasonRow[];

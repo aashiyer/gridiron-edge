@@ -42,6 +42,10 @@ def _season_picks(conn, season: int) -> list:
     for p in picks:
         p["line_at_pick_time"] = display_line(p, p["home_team"], lines) if p["pick_type"] != "straight_up" else None
 
+    latest_season = conn.execute("SELECT MAX(season) AS s FROM games").fetchone()["s"]
+    if season != latest_season:
+        return picks
+
     finals = conn.execute(
         "SELECT game_id, week, kickoff_time FROM games WHERE season = ? AND status = 'final'", (season,)
     ).fetchall()
@@ -51,29 +55,30 @@ def _season_picks(conn, season: int) -> list:
     first_kickoff: dict = {}
     for p in picks:
         if p["pick_type"] in REQUIRED_MARKETS and p["kickoff_time"]:
-            first_kickoff[p["user_id"]] = min(first_kickoff.get(p["user_id"], p["kickoff_time"]), p["kickoff_time"])
+            key = (p["user_id"], p["pick_type"])
+            first_kickoff[key] = min(first_kickoff.get(key, p["kickoff_time"]), p["kickoff_time"])
 
-    for user_id, start in first_kickoff.items():
+    for (user_id, pick_type), start in first_kickoff.items():
         for g in finals:
             if g["kickoff_time"] and g["kickoff_time"] < start:
                 continue
-            for pick_type in REQUIRED_MARKETS:
-                if (user_id, g["game_id"], pick_type) not in have:
-                    picks.append(
-                        {
-                            "user_id": user_id,
-                            "display_name": names[user_id],
-                            "avatar_version": versions[user_id],
-                            "game_id": g["game_id"],
-                            "pick_type": pick_type,
-                            "selection": None,
-                            "line_at_pick_time": None,
-                            "result": "loss",
-                            "week": g["week"],
-                            "kickoff_time": g["kickoff_time"],
-                            "missed": True,
-                        }
-                    )
+            if (user_id, g["game_id"], pick_type) in have:
+                continue
+            picks.append(
+                {
+                    "user_id": user_id,
+                    "display_name": names[user_id],
+                    "avatar_version": versions[user_id],
+                    "game_id": g["game_id"],
+                    "pick_type": pick_type,
+                    "selection": None,
+                    "line_at_pick_time": None,
+                    "result": "loss",
+                    "week": g["week"],
+                    "kickoff_time": g["kickoff_time"],
+                    "missed": True,
+                }
+            )
     return picks
 
 

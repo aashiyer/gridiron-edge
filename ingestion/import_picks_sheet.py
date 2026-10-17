@@ -11,30 +11,46 @@ NICKNAMES = {info["name"].split(" ")[-1]: abbr for abbr, info in TEAMS.items()}
 PEOPLE = ["Jake", "Aashrith", "Shraavan", "Chetan"]
 
 
+def _picks_sheet(workbook):
+    for ws in workbook.worksheets:
+        if ws.title.strip().lower().endswith("picks"):
+            return ws
+    raise ValueError("no sheet whose name ends in 'Picks'")
+
+
 def read_sheet(path: str):
-    ws = openpyxl.load_workbook(path, data_only=True)["Picks"]
+    ws = _picks_sheet(openpyxl.load_workbook(path, data_only=True))
+    rows = ws.iter_rows(values_only=True)
+    header = {str(h).strip(): i for i, h in reversed(list(enumerate(next(rows)))) if h}
+    away_col, home_col, spread_col = header["Away Team"], header["Home Team"], header.get("Spread")
+    people = {}
+    for name in PEOPLE:
+        if f"{name} Winner" in header:
+            people[name] = (header[f"{name} Winner"], header.get(f"{name} Cover"))
     week = None
-    for r in ws.iter_rows(min_row=2, values_only=True):
-        first = r[0]
+    for r in rows:
+        first = r[away_col]
         if isinstance(first, str) and first.startswith("Week"):
             week = int(first.split()[1])
             continue
-        if week is None or first not in NICKNAMES or r[2] not in NICKNAMES:
+        if first not in NICKNAMES or r[home_col] not in NICKNAMES:
             continue
         yield {
             "week": week,
             "away": NICKNAMES[first],
-            "home": NICKNAMES[r[2]],
-            "spread": r[4],
-            "picks": {name: (r[7 + 2 * i], r[8 + 2 * i]) for i, name in enumerate(PEOPLE)},
+            "home": NICKNAMES[r[home_col]],
+            "spread": r[spread_col] if spread_col is not None else None,
+            "picks": {name: (r[w], r[c] if c is not None else None) for name, (w, c) in people.items()},
         }
 
 
 def plan_import(conn, rows, season: int, name: str, user_id: int):
-    games = {
-        (g["week"], g["away_team"], g["home_team"]): g
-        for g in conn.execute("SELECT * FROM games WHERE season = ?", (season,)).fetchall()
-    }
+    season_games = conn.execute("SELECT * FROM games WHERE season = ? ORDER BY kickoff_time", (season,)).fetchall()
+    games = {(g["week"], g["away_team"], g["home_team"]): g for g in season_games}
+    by_pair: dict = {}
+    for g in season_games:
+        by_pair.setdefault(frozenset((g["away_team"], g["home_team"])), []).append(g)
+    seen: dict = {}
     playoffs: dict = {}
     for g in games.values():
         if g["game_type"] != "REG":
@@ -45,10 +61,17 @@ def plan_import(conn, rows, season: int, name: str, user_id: int):
     }
     inserts, skipped, unmatched = [], 0, 0
     for row in rows:
-        game = games.get((row["week"], row["away"], row["home"]))
-        if not game:
-            candidates = playoffs.get(frozenset((row["away"], row["home"])), [])
-            game = candidates[0] if len(candidates) == 1 else None
+        pair = frozenset((row["away"], row["home"]))
+        occurrence = seen.get(pair, 0)
+        seen[pair] = occurrence + 1
+        if row["week"] is None:
+            meetings = by_pair.get(pair, [])
+            game = meetings[occurrence] if occurrence < len(meetings) else None
+        else:
+            game = games.get((row["week"], row["away"], row["home"]))
+            if not game:
+                candidates = playoffs.get(pair, [])
+                game = candidates[0] if len(candidates) == 1 else None
         if not game:
             unmatched += 1
             continue
@@ -61,7 +84,9 @@ def plan_import(conn, rows, season: int, name: str, user_id: int):
                 skipped += 1
                 continue
             line = None
-            if pick_type == "ats" and row["spread"] is not None:
+            if pick_type == "ats":
+                if row["spread"] is None:
+                    continue
                 line = row["spread"] if team == row["home"] else -row["spread"]
             kickoff = game["kickoff_time"]
             try:

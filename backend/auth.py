@@ -55,7 +55,7 @@ def get_current_user(request: Request) -> dict:
     if user_id is None:
         raise HTTPException(status_code=401, detail="invalid or expired token")
     with db_session() as conn:
-        row = conn.execute("SELECT user_id, email, display_name FROM users WHERE user_id = ?", (user_id,)).fetchone()
+        row = conn.execute("SELECT user_id, email, display_name, avatar_version FROM users WHERE user_id = ?", (user_id,)).fetchone()
     if not row:
         raise HTTPException(status_code=401, detail="user not found")
     user = dict(row)

@@ -12,3 +12,6 @@ pyjwt==2.14.0
 bcrypt==5.0.0
 email-validator==2.3.0
 psycopg2-binary==2.9.9
+Pillow==12.3.0
+weasyprint==70.0
+pymupdf==1.28.2

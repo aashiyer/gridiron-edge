@@ -3,6 +3,7 @@ import { api } from "../lib/api";
 import type { Game, PickCell, PickMarket, Record as PickRecord, StandingsEntry, StandingsResponse, WeekAward, WeekBoard } from "../lib/types";
 import { fmtSpread } from "../components/GamePickCard";
 import { TeamLogo } from "../components/TeamBadge";
+import { Avatar } from "../components/Avatar";
 
 const MARKETS: { key: PickMarket; label: string }[] = [
   { key: "ats", label: "ATS" },
@@ -252,6 +253,7 @@ function StandingsTable({ entries }: { entries: StandingsEntry[] }) {
                 <td style={tint} className="sticky left-0 z-10 bg-[var(--card)] px-4 py-3 font-medium text-[var(--text)]">
                   <span className="flex items-center gap-2.5">
                     <span className={`font-display font-bold w-4 text-center ${RANK_STYLES[e.rank] ?? "text-[var(--text-faint)]"}`}>{e.rank}</span>
+                    <Avatar userId={e.user_id} version={e.avatar_version} name={e.display_name} size={28} />
                     {e.display_name}
                     {e.is_you && <YouBadge />}
                   </span>
@@ -317,6 +319,7 @@ function WeekStandingsTable({ board }: { board: WeekBoard }) {
                 <td style={tint} className="sticky left-0 z-10 bg-[var(--card)] px-4 py-3 font-medium text-[var(--text)]">
                   <span className="flex items-center gap-2.5">
                     <span className={`font-display font-bold w-4 text-center ${RANK_STYLES[i + 1] ?? "text-[var(--text-faint)]"}`}>{i + 1}</span>
+                    <Avatar userId={user.user_id} version={user.avatar_version} name={user.display_name} size={28} />
                     {user.display_name}
                     {user.is_you && <YouBadge />}
                     {board.complete && leader && <span title="Won the week">👑</span>}
@@ -375,6 +378,7 @@ function WeekGrid({
               <th key={u.user_id} className="px-2 py-2.5 text-center border-b border-[var(--border)]">
                 <span className={`inline-flex items-center gap-1 max-w-[92px] ${u.is_you ? "text-[var(--accent)]" : ""}`}>
                   {board.complete && leaders.has(u.user_id) && <span title="Won the week">👑</span>}
+                  <Avatar userId={u.user_id} version={u.avatar_version} name={u.display_name} size={22} />
                   <span className="truncate">{u.display_name}</span>
                 </span>
               </th>

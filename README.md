@@ -100,6 +100,8 @@ python -m scripts.train_total_model    # same, for the Over/Under model
 | `roster_continuity.py` | Weights a past season's results by how much of the *current* roster was already on the team that year — discounts a rebuilt team's old history. |
 | `ttl_cache.py` | `ttl_memo` decorator: short-lived in-process cache for read-only lookups repeated across a recommendation refresh, keeping database reads (and Supabase egress) low. |
 | `kalshi.py` | Reads Kalshi's public NFL markets (winner, spread ladder, total ladder) and matches them to our games; served by `routers/kalshi.py` for the Picker's Percentage view. |
+| `avatars.py` | Profile-picture processing: decodes an uploaded image, crops it square, resizes to 256 px and re-encodes it as JPEG before it's stored on the user row. |
+| `week_export.py` | Builds the Picker's Instagram export: renders a cover plus picks slides (1080×1350 PNG) for a chosen week and set of people, using WeasyPrint for layout and PyMuPDF to rasterize. |
 | `historical_injury_signal.py` | Backtestable QB-stability/experience/injury-load signals, computed from real historical usage data (not live scraping) so they can be used as trained-model features. |
 | `injuries.py` | Live QB/starter availability, scoped to the real depth chart (not just any rostered player). |
 | `news.py` | Optional (`OPENAI_API_KEY`): real ESPN headlines for both teams, summarized into 1-2 sentences of qualitative context. |
@@ -110,6 +112,8 @@ python -m scripts.train_total_model    # same, for the Over/Under model
 | `routers/picks.py` | `/api/picks/*` — create/update/delete picks, grading (win/loss/push) against closing lines. |
 | `routers/dashboard.py` | `/api/dashboard/*` — the current user's SU/ATS/Total records (optionally for one season), tendencies, and the vs-model comparison. |
 | `routers/leaderboard.py` | `/api/leaderboard/standings` (season standings, best/worst week, week wins) and `/api/leaderboard/week` (every user's picks for each game in a week, with results and week records). Picks are visible to everyone before kickoff. |
+| `routers/avatars.py` | `GET /api/avatars/{user_id}` serves a user's stored profile picture with long-lived caching (the URL is versioned with `?v=`). Uploading and removing a picture live in `routers/auth.py`. |
+| `routers/export.py` | `GET /api/export/week` returns the generated export slides as base64 PNGs. |
 | `routers/teams.py` | `/api/teams` — static team metadata list. |
 | `routers/admin.py` | Admin-only (see `ADMIN_EMAILS` in `auth.py`): `/api/admin/users` lists every account, and `/api/admin/users/{id}/password` lets the admin set a new password for any user. |
 | `routers/tick.py` | HTTP-triggered equivalent of `python -m ingestion.tick`, kept for any ad-hoc/manual trigger over HTTP; the scheduled path is GitHub Actions running `ingestion/tick.py` directly. |
@@ -173,6 +177,9 @@ python -m scripts.train_total_model    # same, for the Over/Under model
 | `pages/Record.tsx` | The current user's SU/ATS/Total record, by week and by team. |
 | `pages/VsModel.tsx` | Side-by-side user-vs-model record, and every pick where they disagreed. |
 | `pages/Leaderboard.tsx` | Season / week standings toggle on top, then a week grid of every user's pick per game (ATS / SU / O/U tabs, colored by result) with an expandable game-by-game breakdown. |
+| `components/Avatar.tsx` | Round profile picture for a user, falling back to a colored initial. |
+| `components/AvatarEditor.tsx` | Settings section for choosing, cropping, saving and removing your profile picture. |
+| `components/ExportModal.tsx` | The Picker's Export dialog: choose who's included, generate the slides, preview and download them. |
 | `pages/PowerRankings.tsx` | The full GEI-ranked league table. |
 | `pages/Settings.tsx` | Display name, favorite team, password change. |
 | `pages/AdminUsers.tsx` | Registered-user list — admin-only, rendered only when `user.is_admin`. |

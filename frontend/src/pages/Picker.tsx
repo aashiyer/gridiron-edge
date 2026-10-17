@@ -3,6 +3,7 @@ import { api } from "../lib/api";
 import type { Game, KalshiGame, Pick, Recommendation } from "../lib/types";
 import type { PickerView } from "../lib/kalshi";
 import { GamePickCard } from "../components/GamePickCard";
+import { ExportModal } from "../components/ExportModal";
 
 function currentWeekFor(allGames: Game[]): number | null {
   if (!allGames.length) return null;
@@ -58,6 +59,7 @@ export function Picker() {
   const [recs, setRecs] = useState<Record<string, Recommendation>>({});
   const [view, setView] = useState<PickerView>(storedView);
   const [kalshi, setKalshi] = useState<Record<string, KalshiGame>>({});
+  const [exportOpen, setExportOpen] = useState(false);
   const gamesRef = useRef<Game[]>([]);
   useEffect(() => {
     gamesRef.current = games;
@@ -185,7 +187,17 @@ export function Picker() {
           </p>
         </div>
         {currentSeason !== null && season !== null && (
-          <div className="flex gap-2 items-center">
+          <div className="flex gap-2 items-center flex-wrap">
+            <button
+              onClick={() => setExportOpen(true)}
+              disabled={week === null}
+              className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] hover:border-[var(--accent)]/50 text-[var(--text)] font-semibold py-2 px-3.5 text-sm transition-colors disabled:opacity-60"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
+              </svg>
+              Export
+            </button>
             <select
               value={season}
               onChange={(e) => {
@@ -234,6 +246,8 @@ export function Picker() {
           </div>
         )}
       </div>
+
+      {exportOpen && season !== null && week !== null && <ExportModal season={season} week={week} onClose={() => setExportOpen(false)} />}
 
       <div className="mb-4">
         <ViewToggle view={view} onChange={changeView} />

@@ -10,6 +10,7 @@ export interface User {
   user_id: number;
   email: string;
   display_name: string;
+  avatar_version: number;
   favorite_teams: string[];
   is_admin: boolean;
 }
@@ -23,6 +24,7 @@ export interface AdminUser {
   user_id: number;
   email: string;
   display_name: string;
+  avatar_version: number;
   created_at: string;
   pick_count: number;
 }
@@ -140,6 +142,7 @@ export interface StandingsEntry {
   rank: number;
   user_id: number;
   display_name: string;
+  avatar_version: number;
   is_you: boolean;
   straight_up: Record;
   ats: Record;
@@ -162,7 +165,7 @@ export interface WeekBoard {
   season: number;
   week: number;
   complete: boolean;
-  users: { user_id: number; display_name: string; is_you: boolean }[];
+  users: { user_id: number; display_name: string; avatar_version: number; is_you: boolean }[];
   games: Game[];
   picks: { [gameId: string]: { [userId: string]: { [market: string]: PickCell } } };
   records: {
@@ -363,4 +366,9 @@ export interface KalshiGame {
   win?: { home: number; away: number };
   spread?: { home: { [strike: string]: number }; away: { [strike: string]: number } };
   total?: { [strike: string]: number };
+}
+
+export interface ExportSlide {
+  filename: string;
+  image: string;
 }

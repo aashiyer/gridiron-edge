@@ -14,7 +14,7 @@ def list_users(_admin: dict = RequireAdmin):
     with db_session() as conn:
         rows = conn.execute(
             """
-            SELECT u.user_id, u.email, u.display_name, u.created_at,
+            SELECT u.user_id, u.email, u.display_name, u.created_at, u.avatar_version,
                    (SELECT COUNT(*) FROM picks p WHERE p.user_id = u.user_id) AS pick_count
             FROM users u
             ORDER BY u.created_at DESC

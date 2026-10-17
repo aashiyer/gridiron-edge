@@ -193,6 +193,9 @@ CREATE TABLE IF NOT EXISTS users (
     created_at     TEXT NOT NULL
 );
 
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar BYTEA;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_version INTEGER NOT NULL DEFAULT 0;
+
 CREATE TABLE IF NOT EXISTS user_favorite_teams (
     user_id     INTEGER NOT NULL REFERENCES users(user_id),
     team        TEXT NOT NULL,

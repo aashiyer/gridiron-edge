@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState } from "react";
 import { api, ApiError } from "../lib/api";
 import type { AdminUser } from "../lib/types";
+import { Avatar } from "../components/Avatar";
 
 function fmtDate(iso: string) {
   const d = new Date(iso);
@@ -80,7 +81,12 @@ export function AdminUsersPage() {
               {users.map((u) => (
                 <Fragment key={u.user_id}>
                   <tr className="border-b border-[var(--border)] last:border-0">
-                    <td className="px-4 py-3 font-medium text-[var(--text)]">{u.display_name}</td>
+                    <td className="px-4 py-3 font-medium text-[var(--text)]">
+                      <span className="flex items-center gap-2.5">
+                        <Avatar userId={u.user_id} version={u.avatar_version} name={u.display_name} size={28} />
+                        {u.display_name}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 text-[var(--text-muted)]">{u.email}</td>
                     <td className="px-4 py-3 text-[var(--text-muted)]">{fmtDate(u.created_at)}</td>
                     <td className="px-4 py-3 text-right text-[var(--text-muted)]">{u.pick_count}</td>

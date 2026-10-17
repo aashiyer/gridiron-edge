@@ -3,6 +3,7 @@ import { api, ApiError } from "../lib/api";
 import { useAuth } from "../lib/AuthContext";
 import type { TeamMeta } from "../lib/types";
 import { TeamLogo } from "../components/TeamBadge";
+import { AvatarEditor } from "../components/AvatarEditor";
 
 export function SettingsPage() {
   const { user, refreshUser } = useAuth();
@@ -97,6 +98,8 @@ export function SettingsPage() {
           Signed in as {user?.display_name} ({user?.email})
         </p>
       </div>
+
+      <AvatarEditor />
 
       <section className="max-w-sm">
         <h2 className="text-sm font-bold uppercase tracking-widest text-[var(--text-muted)] mb-4">Display Name</h2>

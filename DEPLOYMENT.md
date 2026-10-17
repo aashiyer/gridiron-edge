@@ -50,6 +50,7 @@ gcloud run deploy gridiron-edge-api \
   --region us-east5 \
   --allow-unauthenticated \
   --max-instances=2 \
+  --memory=1Gi \
   --env-vars-file=path/to/your/env.yaml
 ```
 

@@ -4,6 +4,7 @@ import type {
   DashboardSummary,
   Recommendation,
   KalshiGame,
+  ExportSlide,
   GameDetail,
   TeamMeta,
   VsModelSummary,
@@ -77,6 +78,10 @@ async function req<T>(path: string, options?: RequestInit): Promise<T> {
 
 export { ApiError };
 
+export function avatarUrl(userId: number, version: number): string {
+  return `${BASE}/avatars/${userId}?v=${version}`;
+}
+
 export const api = {
   signup: (payload: { email: string; password: string; display_name: string }) =>
     req<AuthResponse>(`/auth/signup`, { method: "POST", body: JSON.stringify(payload) }),
@@ -140,6 +145,10 @@ export const api = {
   leaderboardWeek: (season: number, week: number) => req<WeekBoard>(`/leaderboard/week?season=${season}&week=${week}`),
   teams: () => req<TeamMeta[]>(`/teams`),
 
+  uploadAvatar: (image: string) => req<{ avatar_version: number }>(`/auth/avatar`, { method: "POST", body: JSON.stringify({ image }) }),
+  deleteAvatar: () => req<{ avatar_version: number }>(`/auth/avatar`, { method: "DELETE" }),
+  exportWeek: (season: number, week: number, userIds: number[]) =>
+    req<{ slides: ExportSlide[] }>(`/export/week?season=${season}&week=${week}&user_ids=${userIds.join(",")}`),
   adminUsers: () => req<AdminUser[]>(`/admin/users`),
   adminResetPassword: (userId: number, newPassword: string) =>
     req<{ user_id: number; display_name: string; status: string }>(`/admin/users/${userId}/password`, {

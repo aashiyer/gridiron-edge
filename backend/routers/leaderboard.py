@@ -24,7 +24,7 @@ def _record(picks: list) -> dict:
 def _season_picks(conn, season: int) -> list:
     rows = conn.execute(
         """
-        SELECT p.user_id, u.display_name, p.game_id, p.pick_type, p.selection, COALESCE(p.graded_line, p.line_at_pick_time) AS line_at_pick_time, p.result, g.week, g.kickoff_time
+        SELECT p.user_id, u.display_name, u.avatar_version, p.game_id, p.pick_type, p.selection, COALESCE(p.graded_line, p.line_at_pick_time) AS line_at_pick_time, p.result, g.week, g.kickoff_time
         FROM picks p
         JOIN users u ON u.user_id = p.user_id
         JOIN games g ON g.game_id = p.game_id
@@ -39,6 +39,7 @@ def _season_picks(conn, season: int) -> list:
     ).fetchall()
     have = {(p["user_id"], p["game_id"], p["pick_type"]) for p in picks}
     names = {p["user_id"]: p["display_name"] for p in picks}
+    versions = {p["user_id"]: p["avatar_version"] for p in picks}
     first_kickoff: dict = {}
     for p in picks:
         if p["pick_type"] in REQUIRED_MARKETS and p["kickoff_time"]:
@@ -54,6 +55,7 @@ def _season_picks(conn, season: int) -> list:
                         {
                             "user_id": user_id,
                             "display_name": names[user_id],
+                            "avatar_version": versions[user_id],
                             "game_id": g["game_id"],
                             "pick_type": pick_type,
                             "selection": None,
@@ -81,7 +83,7 @@ def _standings_entries(picks: list, weeks: list, you: int) -> list:
 
     by_user: dict = {}
     for p in picks:
-        by_user.setdefault(p["user_id"], {"display_name": p["display_name"], "picks": []})["picks"].append(p)
+        by_user.setdefault(p["user_id"], {"display_name": p["display_name"], "avatar_version": p["avatar_version"], "picks": []})["picks"].append(p)
 
     weekly: dict = {}
     for user_id, data in by_user.items():
@@ -130,6 +132,7 @@ def _standings_entries(picks: list, weeks: list, you: int) -> list:
             {
                 "user_id": user_id,
                 "display_name": data["display_name"],
+                "avatar_version": data["avatar_version"],
                 "is_you": user_id == you,
                 "straight_up": _record(su),
                 "ats": _record(ats),
@@ -192,8 +195,9 @@ def week_board(season: int, week: int, current_user: dict = Depends(get_current_
         }
 
     names = {p["user_id"]: p["display_name"] for p in season_picks}
+    versions = {p["user_id"]: p["avatar_version"] for p in season_picks}
     users = [
-        {"user_id": u, "display_name": names[u], "is_you": u == current_user["user_id"]}
+        {"user_id": u, "display_name": names[u], "avatar_version": versions[u], "is_you": u == current_user["user_id"]}
         for u in sorted(order, key=lambda u: order[u])
     ]
     return {

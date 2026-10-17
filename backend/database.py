@@ -69,6 +69,11 @@ _TEAM_STATS_MIGRATIONS = [
     ("def_yards_clean", "REAL"),
 ]
 
+_USERS_MIGRATIONS = [
+    ("avatar", "BLOB"),
+    ("avatar_version", "INTEGER NOT NULL DEFAULT 0"),
+]
+
 _QB_STARTERS_MIGRATIONS = [
     ("dropbacks", "INTEGER"),
     ("epa_dropback", "REAL"),
@@ -93,6 +98,11 @@ def _migrate(conn):
     for col, coltype in _TEAM_STATS_MIGRATIONS:
         if col.lower() not in existing_team_stats:
             conn.execute(f"ALTER TABLE team_stats ADD COLUMN {col} {coltype}")
+
+    existing_users = {row["name"].lower() for row in conn.execute("PRAGMA table_info(users)")}
+    for col, coltype in _USERS_MIGRATIONS:
+        if col.lower() not in existing_users:
+            conn.execute(f"ALTER TABLE users ADD COLUMN {col} {coltype}")
 
     existing_qb_starters = {row["name"].lower() for row in conn.execute("PRAGMA table_info(qb_starters)")}
     for col, coltype in _QB_STARTERS_MIGRATIONS:

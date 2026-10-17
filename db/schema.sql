@@ -209,7 +209,9 @@ CREATE TABLE IF NOT EXISTS users (
     email          TEXT NOT NULL UNIQUE,
     password_hash  TEXT NOT NULL,
     display_name   TEXT NOT NULL,
-    created_at     TEXT NOT NULL
+    created_at     TEXT NOT NULL,
+    avatar         BLOB,
+    avatar_version INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS user_favorite_teams (

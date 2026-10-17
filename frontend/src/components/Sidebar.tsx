@@ -1,3 +1,4 @@
+import { Avatar } from "./Avatar";
 import { useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext";
@@ -85,7 +86,7 @@ export function Sidebar() {
               }`
             }
           >
-            <PersonIcon className="w-[18px] h-[18px] shrink-0 text-[var(--text-faint)]" />
+            <Avatar userId={user.user_id} version={user.avatar_version} name={user.display_name} size={26} />
             <span className="truncate">{user.display_name}</span>
           </NavLink>
           <button

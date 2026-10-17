@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
 
 from backend.auth import create_token, get_current_user, hash_password, verify_password
+from backend.avatars import decode_data_url, process_avatar, save_avatar
 from backend.database import db_session
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -35,7 +36,12 @@ class DisplayNameRequest(BaseModel):
 
 
 def _user_out(row) -> dict:
-    return {"user_id": row["user_id"], "email": row["email"], "display_name": row["display_name"]}
+    return {
+        "user_id": row["user_id"],
+        "email": row["email"],
+        "display_name": row["display_name"],
+        "avatar_version": dict(row).get("avatar_version", 0),
+    }
 
 
 @router.post("/signup")
@@ -117,3 +123,22 @@ def set_favorite_teams(payload: FavoriteTeamsRequest, current_user: dict = Depen
                 (current_user["user_id"], team),
             )
     return {"teams": payload.teams}
+
+
+class AvatarRequest(BaseModel):
+    image: str
+
+
+@router.post("/avatar")
+def upload_avatar(payload: AvatarRequest, current_user: dict = Depends(get_current_user)):
+    jpeg = process_avatar(decode_data_url(payload.image))
+    with db_session() as conn:
+        version = save_avatar(conn, current_user["user_id"], jpeg)
+    return {"avatar_version": version}
+
+
+@router.delete("/avatar")
+def delete_avatar(current_user: dict = Depends(get_current_user)):
+    with db_session() as conn:
+        conn.execute("UPDATE users SET avatar = NULL, avatar_version = 0 WHERE user_id = ?", (current_user["user_id"],))
+    return {"avatar_version": 0}

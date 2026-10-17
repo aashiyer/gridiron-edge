@@ -6,9 +6,8 @@ from pydantic import BaseModel
 
 from backend.auth import get_current_user
 from backend.database import db_session
-from backend.current_lines import current_lines, display_line
 from backend.teams import team_meta
-from backend.ttl_cache import clear_cache
+from backend.ttl_cache import clear_pick_caches
 from backend.analysis import build_recommendation, cached_recommendation
 
 router = APIRouter(prefix="/api/picks", tags=["picks"])
@@ -94,14 +93,7 @@ def list_picks(
 
     with db_session() as conn:
         rows = conn.execute(query, params).fetchall()
-        pending_games = list({r["game_id"] for r in rows if r["result"] not in ("win", "loss", "push") and r["pick_type"] != "straight_up"})
-        lines = current_lines(conn, pending_games)
-    out = []
-    for r in rows:
-        d = _serialize_pick(r)
-        d["display_line"] = display_line(d, d["home_team"], lines) if d["pick_type"] != "straight_up" else None
-        out.append(d)
-    return out
+    return [_serialize_pick(r) for r in rows]
 
 
 def _model_snapshot(game_id: str, pick_type: str, conn=None):
@@ -169,7 +161,7 @@ def set_pick(body: PickSet, current_user: dict = Depends(get_current_user)):
                 "DELETE FROM picks WHERE user_id = ? AND game_id = ? AND pick_type = ?",
                 (current_user["user_id"], body.game_id, body.pick_type),
             )
-        clear_cache("season_picks")
+        clear_pick_caches()
         return {"game_id": body.game_id, "pick_type": body.pick_type, "selection": None}
 
     pick = PickCreate(
@@ -213,7 +205,7 @@ def create_pick(pick: PickCreate, current_user: dict = Depends(get_current_user)
             "SELECT * FROM picks WHERE user_id = ? AND game_id = ? AND pick_type = ?",
             (current_user["user_id"], pick.game_id, pick.pick_type),
         ).fetchone()
-    clear_cache("season_picks")
+    clear_pick_caches()
     return _serialize_pick(row)
 
 
@@ -238,7 +230,7 @@ def update_pick(pick_id: int, update: PickUpdate, current_user: dict = Depends(g
             set_clause = ", ".join(f"{k} = ?" for k in fields)
             conn.execute(f"UPDATE picks SET {set_clause} WHERE pick_id = ?", (*fields.values(), pick_id))
         row = conn.execute("SELECT * FROM picks WHERE pick_id = ?", (pick_id,)).fetchone()
-    clear_cache("season_picks")
+    clear_pick_caches()
     return _serialize_pick(row) if row else {"error": "not found"}
 
 
@@ -247,7 +239,7 @@ def delete_pick(pick_id: int, current_user: dict = Depends(get_current_user)):
     with db_session() as conn:
         _assert_owns_pick(conn, pick_id, current_user["user_id"])
         conn.execute("DELETE FROM picks WHERE pick_id = ?", (pick_id,))
-    clear_cache("season_picks")
+    clear_pick_caches()
     return {"deleted": pick_id}
 
 
@@ -344,5 +336,5 @@ def grade_pending_picks():
                 set_clause = ", ".join(f"{k} = ?" for k in updates)
                 conn.execute(f"UPDATE picks SET {set_clause} WHERE pick_id = ?", (*updates.values(), pick["pick_id"]))
                 graded.append({"pick_id": pick["pick_id"], **updates})
-    clear_cache("season_picks")
+    clear_pick_caches()
     return {"graded": graded, "count": len(graded)}

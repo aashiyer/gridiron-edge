@@ -20,17 +20,6 @@ export function TargetIcon({ className }: IconProps) {
   );
 }
 
-export function ListIcon({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 20 20" fill={base} className={className}>
-      <path d="M7 5h9M7 10h9M7 15h9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-      <circle cx="3.5" cy="5" r="1" fill="currentColor" />
-      <circle cx="3.5" cy="10" r="1" fill="currentColor" />
-      <circle cx="3.5" cy="15" r="1" fill="currentColor" />
-    </svg>
-  );
-}
-
 export function ChartIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 20 20" fill={base} className={className}>

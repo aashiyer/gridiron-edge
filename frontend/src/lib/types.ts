@@ -61,7 +61,6 @@ export interface Pick {
   selection: string;
   line_at_pick_time: number | null;
   graded_line: number | null;
-  display_line: number | null;
   stake: number | null;
   result: "win" | "loss" | "push" | "pending";
   notes: string | null;
@@ -92,20 +91,7 @@ export interface DashboardSummary {
   straight_up: Record;
   ats: Record;
   total: Record;
-  pending_count: number;
-  by_team: Record_<string, Record>;
-  su_by_team: Record_<string, Record>;
-  tendencies: {
-    su_favorite: Record;
-    su_underdog: Record;
-    ats_laying: Record;
-    ats_taking: Record;
-  };
-  by_week: Record_<string, { straight_up: Record; ats: Record }>;
-  break_even_pct: number;
 }
-
-type Record_<K extends string, V> = { [key in K]: V };
 
 export interface Disagreement {
   pick_id: number;
@@ -372,4 +358,64 @@ export interface KalshiGame {
 export interface ExportSlide {
   filename: string;
   image: string;
+}
+
+export interface RecordsPerson {
+  user_id: number;
+  display_name: string;
+  avatar_version: number;
+}
+
+export interface WeekMark {
+  season: number;
+  week: number;
+  label: string;
+  win_pct: number;
+  wins: number;
+  losses: number;
+  pushes: number;
+}
+
+export interface TrendPoint {
+  season: number;
+  week: number;
+  label: string;
+  cumulative_units: number;
+  rolling_ats_pct: number | null;
+  ats: Record;
+  straight_up: Record;
+}
+
+export interface SeasonRow {
+  season: number;
+  ats: Record;
+  ats_units: number;
+  straight_up: Record;
+  rank: { rank: number; of: number } | null;
+}
+
+export interface SplitGroup {
+  title: string;
+  items: { label: string; record: Record }[];
+}
+
+export interface RecordsResponse {
+  user: RecordsPerson;
+  is_you: boolean;
+  season: number | null;
+  available_seasons: number[];
+  people: RecordsPerson[];
+  scorecard: {
+    ats: Record;
+    ats_units: number;
+    straight_up: Record;
+    decided_picks: number;
+    rank: { rank: number; of: number } | null;
+    best_week: WeekMark | null;
+    worst_week: WeekMark | null;
+  };
+  trend: TrendPoint[];
+  season_rows: SeasonRow[];
+  splits: { ats: SplitGroup[]; straight_up: SplitGroup[] };
+  teams: { ats: { [team: string]: Record }; straight_up: { [team: string]: Record } };
 }

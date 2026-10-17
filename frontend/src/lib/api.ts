@@ -5,6 +5,7 @@ import type {
   Recommendation,
   KalshiGame,
   ExportSlide,
+  RecordsResponse,
   GameDetail,
   TeamMeta,
   VsModelSummary,
@@ -151,6 +152,12 @@ export const api = {
   deleteAvatar: () => req<{ avatar_version: number }>(`/auth/avatar`, { method: "DELETE" }),
   exportWeek: (season: number, week: number, userIds: number[]) =>
     req<{ slides: ExportSlide[] }>(`/export/week?season=${season}&week=${week}&user_ids=${userIds.join(",")}`),
+  records: (params: { user_id?: number; season?: number } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.user_id) qs.set("user_id", String(params.user_id));
+    if (params.season) qs.set("season", String(params.season));
+    return req<RecordsResponse>(`/records?${qs.toString()}`);
+  },
   adminUsers: () => req<AdminUser[]>(`/admin/users`),
   adminResetPassword: (userId: number, newPassword: string) =>
     req<{ user_id: number; display_name: string; status: string }>(`/admin/users/${userId}/password`, {

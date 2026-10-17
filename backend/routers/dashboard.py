@@ -20,66 +20,20 @@ def _record(rows, field: str = "result") -> dict:
 @router.get("")
 def dashboard_summary(season: Optional[int] = None, current_user: dict = Depends(get_current_user)):
     query = (
-        "SELECT p.*, g.home_team, g.away_team, g.season, g.week, g.home_spread_close FROM picks p JOIN games g ON g.game_id = p.game_id"
-        " WHERE p.user_id = ?"
+        "SELECT p.pick_type, p.result FROM picks p JOIN games g ON g.game_id = p.game_id"
+        " WHERE p.user_id = ? AND p.result IN ('win', 'loss', 'push')"
     )
     params: list = [current_user["user_id"]]
     if season is not None:
         query += " AND g.season = ?"
         params.append(season)
     with db_session() as conn:
-        all_picks = conn.execute(query, params).fetchall()
-
-    decided = [p for p in all_picks if p["result"] in ("win", "loss", "push")]
-    su = [p for p in decided if p["pick_type"] == "straight_up"]
-    ats = [p for p in decided if p["pick_type"] == "ats"]
-    total_bets = [p for p in decided if p["pick_type"] == "total"]
-
-    by_team: dict = {}
-    for p in ats:
-        team = p["selection"]
-        by_team.setdefault(team, []).append(p)
-
-    su_by_team: dict = {}
-    su_favorite, su_underdog, ats_laying, ats_taking = [], [], [], []
-    for p in su:
-        su_by_team.setdefault(p["selection"], []).append(p)
-        line = p["home_spread_close"]
-        if line is None or line == 0:
-            continue
-        team_line = line if p["selection"] == p["home_team"] else -line
-        (su_favorite if team_line < 0 else su_underdog).append(p)
-    for p in ats:
-        line = p["graded_line"] if p["graded_line"] is not None else p["line_at_pick_time"]
-        if line is None or line == 0:
-            continue
-        (ats_laying if line < 0 else ats_taking).append(p)
-
-    by_week: dict = {}
-    for p in decided:
-        if p["pick_type"] not in ("straight_up", "ats"):
-            continue
-        key = f"{p['season']}-W{p['week']}"
-        by_week.setdefault(key, {"straight_up": [], "ats": []})[p["pick_type"]].append(p)
+        decided = conn.execute(query, params).fetchall()
 
     return {
-        "straight_up": _record(su),
-        "ats": _record(ats),
-        "total": _record(total_bets),
-        "pending_count": sum(1 for p in all_picks if p["result"] == "pending"),
-        "by_team": {team: _record(rows) for team, rows in by_team.items()},
-        "su_by_team": {team: _record(rows) for team, rows in su_by_team.items()},
-        "tendencies": {
-            "su_favorite": _record(su_favorite),
-            "su_underdog": _record(su_underdog),
-            "ats_laying": _record(ats_laying),
-            "ats_taking": _record(ats_taking),
-        },
-        "by_week": {
-            week: {"straight_up": _record(rows["straight_up"]), "ats": _record(rows["ats"])}
-            for week, rows in sorted(by_week.items())
-        },
-        "break_even_pct": 52.4,
+        "straight_up": _record([p for p in decided if p["pick_type"] == "straight_up"]),
+        "ats": _record([p for p in decided if p["pick_type"] == "ats"]),
+        "total": _record([p for p in decided if p["pick_type"] == "total"]),
     }
 
 

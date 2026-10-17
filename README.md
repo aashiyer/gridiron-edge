@@ -111,8 +111,9 @@ python -m scripts.train_total_model    # same, for the Over/Under model
 | `routers/auth.py` | `/api/auth/*` — signup, login, `/me`, password/display-name change, favorite teams. |
 | `routers/games.py` | `/api/games/*` — game list/detail, recommendations, power rankings. Literal routes are registered before `/{game_id}` to avoid FastAPI's catch-all route-ordering trap. |
 | `routers/picks.py` | `/api/picks/*` — create/update/delete picks, grading (win/loss/push) against closing lines. |
-| `routers/dashboard.py` | `/api/dashboard/*` — the current user's SU/ATS/Total records (optionally for one season), tendencies, and the vs-model comparison. |
+| `routers/dashboard.py` | `/api/dashboard/*` — the current user's SU/ATS/Total records (optionally for one season, used by the home page) and the vs-model comparison. |
 | `routers/leaderboard.py` | `/api/leaderboard/standings` (season standings, best/worst week, week wins) and `/api/leaderboard/week` (every user's picks for each game in a week, with results and week records). Picks are visible to everyone before kickoff. |
+| `routers/records.py` | `GET /api/records` — one person's graded record for a season or all time: scorecard, weekly trend, per-season rows with rank, splits and per-team records. Cached for a few minutes and cleared when anyone changes a pick. |
 | `routers/avatars.py` | `GET /api/avatars/{user_id}` serves a user's stored profile picture with long-lived caching (the URL is versioned with `?v=`). Uploading and removing a picture live in `routers/auth.py`. |
 | `routers/export.py` | `GET /api/export/week` returns the generated export slides as base64 PNGs. |
 | `routers/teams.py` | `/api/teams` — static team metadata list. |
@@ -173,10 +174,10 @@ python -m scripts.train_total_model    # same, for the Over/Under model
 | `components/icons.tsx` | Hand-written SVG icon set (avoids an icon-library dependency). |
 | `pages/Home.tsx` | Landing page — next game, this week's slate, SU/ATS/O-U record summary. |
 | `pages/Picker.tsx` | Make picks for a given week; polls for recommendation-cache warmup on cold games. |
-| `pages/MyPicks.tsx` | Full pick history, result-colored. |
 | `pages/Games.tsx` | Full schedule/results list for a season/week. |
 | `pages/GameDetail.tsx` | One game's full stats, odds history, and picks. |
-| `pages/Record.tsx` | The current user's SU/ATS/Total record, by week and by team. |
+| `pages/Record.tsx` | Anyone's record (pick the person and season, or all time): scorecard with units at -110 and group rank, trend chart, season-by-season table, splits (favorites/underdogs, home/road, division, time slot, part of season, spread size) and a by-team grid. Names on the leaderboard link here. |
+| `components/TrendChart.tsx` | SVG line chart of cumulative units or rolling 25-pick ATS % with season markers and hover. |
 | `pages/VsModel.tsx` | Side-by-side user-vs-model record, and every pick where they disagreed. |
 | `pages/Leaderboard.tsx` | Season / week standings toggle on top, then a week grid of every user's pick per game (ATS / SU / O/U tabs, colored by result) with an expandable game-by-game breakdown. |
 | `components/Avatar.tsx` | Round profile picture for a user, falling back to a colored initial. |

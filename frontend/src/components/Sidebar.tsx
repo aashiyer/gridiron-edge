@@ -3,12 +3,11 @@ import { useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext";
 import { useTheme } from "../lib/ThemeContext";
-import { HomeIcon, TargetIcon, ListIcon, ChartIcon, ScaleIcon, CalendarIcon, TrophyIcon, PersonIcon, SunIcon, MoonIcon, LogoMark, RankIcon, MoreIcon, ShieldIcon } from "./icons";
+import { HomeIcon, TargetIcon, ChartIcon, ScaleIcon, CalendarIcon, TrophyIcon, PersonIcon, SunIcon, MoonIcon, LogoMark, RankIcon, MoreIcon, ShieldIcon } from "./icons";
 
 const baseTabs = [
   { to: "/", label: "Home", icon: HomeIcon, end: true },
   { to: "/picker", label: "Picker", icon: TargetIcon },
-  { to: "/my-picks", label: "My Picks", icon: ListIcon },
   { to: "/leaderboard", label: "Leaderboard", icon: TrophyIcon },
   { to: "/power-rankings", label: "Power Rankings", icon: RankIcon },
   { to: "/record", label: "Record", icon: ChartIcon },
@@ -27,7 +26,7 @@ export function Sidebar() {
   if (!user) return null;
 
   const tabs = user.is_admin ? [...baseTabs, ADMIN_TAB] : baseTabs;
-  const primaryMobileTabs = tabs.filter((t) => ["/", "/picker", "/my-picks", "/leaderboard"].includes(t.to));
+  const primaryMobileTabs = tabs.filter((t) => ["/", "/picker", "/leaderboard", "/record"].includes(t.to));
   const moreTabs = tabs.filter((t) => !primaryMobileTabs.includes(t));
 
   function doLogout() {

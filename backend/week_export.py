@@ -83,8 +83,11 @@ def _line_label(game: dict) -> str:
 
 def _kickoff(iso) -> str:
     try:
-        d = datetime.strptime(iso, "%Y-%m-%dT%H:%MZ").replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo("America/New_York"))
-    except (TypeError, ValueError):
+        if iso.endswith("Z"):
+            d = datetime.strptime(iso, "%Y-%m-%dT%H:%MZ").replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo("America/New_York"))
+        else:
+            d = datetime.strptime(iso[:16], "%Y-%m-%dT%H:%M")
+    except (TypeError, ValueError, AttributeError):
         return "TBD"
     return d.strftime("%a %-I:%M %p")
 

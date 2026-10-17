@@ -23,3 +23,8 @@ def ttl_memo(name: str, ttl_seconds: int):
 
 def clear_cache(name: str):
     _CACHES.get(name, {}).clear()
+
+
+def clear_pick_caches():
+    for name in ("season_picks", "records", "records_group"):
+        clear_cache(name)

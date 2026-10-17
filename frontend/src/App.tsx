@@ -5,7 +5,6 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { TeamAccentSync } from "./components/TeamAccentSync";
 import { Home } from "./pages/Home";
 import { Picker } from "./pages/Picker";
-import { MyPicks } from "./pages/MyPicks";
 import { RecordPage } from "./pages/Record";
 import { GamesPage } from "./pages/Games";
 import { GameDetailPage } from "./pages/GameDetail";
@@ -29,7 +28,6 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
           <Route path="/picker" element={<ProtectedRoute><Picker /></ProtectedRoute>} />
-          <Route path="/my-picks" element={<ProtectedRoute><MyPicks /></ProtectedRoute>} />
           <Route path="/leaderboard" element={<ProtectedRoute><LeaderboardPage /></ProtectedRoute>} />
           <Route path="/power-rankings" element={<ProtectedRoute><PowerRankingsPage /></ProtectedRoute>} />
           <Route path="/record" element={<ProtectedRoute><RecordPage /></ProtectedRoute>} />

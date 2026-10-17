@@ -4,6 +4,7 @@ import type { Game, PickCell, PickMarket, Record as PickRecord, StandingsEntry, 
 import { fmtSpread } from "../components/GamePickCard";
 import { TeamLogo } from "../components/TeamBadge";
 import { Avatar } from "../components/Avatar";
+import { usePolling } from "../lib/usePolling";
 
 const MARKETS: { key: PickMarket; label: string }[] = [
   { key: "ats", label: "ATS" },
@@ -86,16 +87,14 @@ export function LeaderboardPage() {
     api.leaderboardWeek(season, week).then((r) => {
       if (!cancelled) setBoard(r);
     });
-    const id = setInterval(() => {
-      api.leaderboardWeek(season, week).then((r) => {
-        if (!cancelled) setBoard(r);
-      });
-    }, 5 * 60 * 1000);
     return () => {
       cancelled = true;
-      clearInterval(id);
     };
   }, [season, week]);
+
+  usePolling(() => {
+    if (season !== null && week !== null) api.leaderboardWeek(season, week).then(setBoard);
+  }, 15 * 60 * 1000);
 
   const weeks = standings?.weeks ?? [];
   const weekIndex = weeks.findIndex((w) => w.week === week);

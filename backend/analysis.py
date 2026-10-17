@@ -67,9 +67,15 @@ from backend.ttl_cache import ttl_memo as _ttl_memo
 RECENT_N = 8
 
 
-@_ttl_memo("final_games", 600)
+@_ttl_memo("final_games", 3600)
 def _final_games(conn):
-    return conn.execute("SELECT * FROM games WHERE status = 'final' ORDER BY kickoff_time DESC").fetchall()
+    return conn.execute(
+        """
+        SELECT game_id, season, week, status, kickoff_time, home_team, away_team, final_home_score, final_away_score,
+               home_spread_close, total_close, roof, temp, wind, precip_pct
+        FROM games WHERE status = 'final' ORDER BY kickoff_time DESC
+        """
+    ).fetchall()
 
 
 def _games_for(conn, team: str, before_kickoff, *, spread_only=True, season_min=None, season_max=None, limit=None):

@@ -4,6 +4,7 @@ import type { Game, KalshiGame, Pick, Recommendation } from "../lib/types";
 import type { PickerView } from "../lib/kalshi";
 import { GamePickCard } from "../components/GamePickCard";
 import { ExportModal } from "../components/ExportModal";
+import { usePolling } from "../lib/usePolling";
 
 function currentWeekFor(allGames: Game[]): number | null {
   if (!allGames.length) return null;
@@ -65,28 +66,34 @@ export function Picker() {
     gamesRef.current = games;
   }, [games]);
 
-  async function reload() {
+  const context = useRef<{ season: number | null; week: number | null }>({ season: null, week: null });
+  useEffect(() => {
+    context.current = { season, week };
+  }, [season, week]);
+
+  async function reload(silent = false) {
     if (season === null) return;
     const id = ++requestId.current;
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
-      const [allGames, allPicks] = await Promise.all([api.games({ season }), api.picks()]);
+      const allGames = await api.games({ season });
       if (id !== requestId.current) return;
       setGames(allGames);
-      setPicks(allPicks);
       if (autoWeek) {
         const live = currentWeekFor(allGames);
         if (live !== null) setWeek(live);
       }
     } finally {
-      if (id === requestId.current) setLoading(false);
+      if (id === requestId.current && !silent) setLoading(false);
     }
   }
 
   async function refreshPicks() {
+    const { season: s, week: w } = context.current;
+    if (s === null || w === null) return;
     const id = ++picksRequestId.current;
-    const allPicks = await api.picks();
-    if (id === picksRequestId.current) setPicks(allPicks);
+    const weekPicks = await api.picks({ season: s, week: w });
+    if (id === picksRequestId.current) setPicks(weekPicks);
   }
 
   useEffect(() => {
@@ -103,10 +110,14 @@ export function Picker() {
   }, [season]);
 
   useEffect(() => {
-    const id = setInterval(reload, 5 * 60 * 1000);
-    return () => clearInterval(id);
+    refreshPicks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [season, autoWeek]);
+  }, [season, week]);
+
+  usePolling(() => {
+    reload(true);
+    refreshPicks();
+  }, 10 * 60 * 1000);
 
   useEffect(() => {
     if (week === null || season === null) return;
@@ -146,23 +157,22 @@ export function Picker() {
     }
   }
 
-  useEffect(() => {
-    if (view !== "percent" || week === null || season === null) return;
-    let cancelled = false;
-    async function load() {
-      try {
-        const r = await api.kalshi({ season: season as number, week: week as number });
-        if (!cancelled) setKalshi((prev) => ({ ...prev, ...r }));
-      } catch {
-      }
+  const loadKalshi = useRef<() => void>(() => {});
+  loadKalshi.current = async () => {
+    const { season: s, week: w } = context.current;
+    if (s === null || w === null) return;
+    try {
+      const r = await api.kalshi({ season: s, week: w });
+      setKalshi((prev) => ({ ...prev, ...r }));
+    } catch {
     }
-    load();
-    const id = setInterval(load, 60 * 1000);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
+  };
+
+  useEffect(() => {
+    if (view === "percent") loadKalshi.current();
   }, [view, season, week]);
+
+  usePolling(() => loadKalshi.current(), 3 * 60 * 1000, view === "percent");
 
   const weekGames = useMemo(() => games.filter((g) => g.week === week), [games, week]);
   const availableWeeks = useMemo(() => Array.from(new Set(games.map((g) => g.week))).sort((a, b) => a - b), [games]);

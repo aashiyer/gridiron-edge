@@ -19,3 +19,7 @@ def ttl_memo(name: str, ttl_seconds: int):
         return wrapper
 
     return deco
+
+
+def clear_cache(name: str):
+    _CACHES.get(name, {}).clear()

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import type { Pick } from "../lib/types";
 import { team_meta_lookup } from "../lib/localTeams";
+import { usePolling } from "../lib/usePolling";
 
 const PICK_TYPE_ORDER: Pick["pick_type"][] = ["straight_up", "ats", "total"];
 const PICK_TYPE_LABEL: Record<Pick["pick_type"], string> = {
@@ -65,21 +66,33 @@ function chipClasses(result: Pick["result"]): string {
 export function MyPicks() {
   const [picks, setPicks] = useState<Pick[]>([]);
   const [loading, setLoading] = useState(true);
+  const [seasons, setSeasons] = useState<number[]>([]);
+  const [season, setSeason] = useState<number | null>(null);
 
   async function load(silent = false) {
+    if (season === null) return;
     if (!silent) setLoading(true);
     try {
-      setPicks(await api.picks());
+      setPicks(await api.picks({ season }));
     } finally {
       if (!silent) setLoading(false);
     }
   }
 
   useEffect(() => {
-    load();
-    const id = setInterval(() => load(true), 5 * 60 * 1000);
-    return () => clearInterval(id);
+    api.seasons().then((list) => {
+      const sorted = [...list].sort((a, b) => b - a);
+      setSeasons(sorted);
+      setSeason(sorted[0] ?? new Date().getFullYear());
+    });
   }, []);
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [season]);
+
+  usePolling(() => load(true), 15 * 60 * 1000);
 
   async function remove(pickId: number) {
     setPicks((prev) => prev.filter((p) => p.pick_id !== pickId));
@@ -101,12 +114,22 @@ export function MyPicks() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-[var(--text)]">My Picks</h1>
-        <p className="text-sm text-[var(--text-muted)] mt-1">
-
-          {picks.length} logged pick{picks.length === 1 ? "" : "s"} across {grouped.length} game{grouped.length === 1 ? "" : "s"}
-        </p>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-[var(--text)]">My Picks</h1>
+          <p className="text-sm text-[var(--text-muted)] mt-1">
+            {picks.length} logged pick{picks.length === 1 ? "" : "s"} across {grouped.length} game{grouped.length === 1 ? "" : "s"}
+          </p>
+        </div>
+        {season !== null && seasons.length > 1 && (
+          <select value={season} onChange={(e) => setSeason(Number(e.target.value))} className="input">
+            {seasons.map((s) => (
+              <option key={s} value={s}>
+                {s} Season
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {loading && <div className="text-[var(--text-muted)] text-sm">Loading…</div>}

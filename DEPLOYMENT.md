@@ -94,16 +94,20 @@ on `/login`; picks and records are private per account.
 ## Database egress budget (Supabase free tier: 5 GB/month)
 
 Egress, not storage, is the limit that matters (the database is ~25 MB of
-500 MB). Recommendation refreshes are the main reader, so they are scheduled
-conservatively with Cloud Scheduler (us-central1, project gridiron-edge-473921):
+500 MB). Recommendation refreshes and page loads are the main readers, so
+they are kept deliberately light:
 
 | Job | Schedule | Scope |
 | --- | --- | --- |
-| `gridiron-recs` | hourly at :05 | scheduled games kicking off within 7 days (`recs`) |
-| `gridiron-recs-all` | daily 09:30 UTC | every scheduled game this season (`recs_all`) |
+| `gridiron-recs` | every 3 hours at :05 | scheduled games kicking off within 7 days (`recs`), ~0.6 MB per run |
+| `gridiron-recs-all` | Tue and Fri 09:30 UTC | every scheduled game this season (`recs_all`) |
 | `gridiron-keepwarm` | every 5 min | `/api/health`, never touches the database |
 
-Repeated lookups inside a refresh are memoized in `backend/ttl_cache.py`;
-roster overlap is computed in SQL. Check usage with `pg_stat_statements`
-(`select sum(rows) from pg_stat_statements`) — an hourly refresh should read
-roughly 10k rows.
+Other savings: repeated lookups inside a refresh are memoized
+(`backend/ttl_cache.py`), the game list and leaderboard data are cached on the
+server for a couple of minutes (and cleared when anyone changes a pick), the
+Picker and game page only fetch the current week's picks, My Picks fetches one
+season at a time, and browser tabs only poll while visible (every 10-15 min).
+
+Check usage any time with `DATABASE_URL=... python -m scripts.db_usage`
+(`--reset` starts a fresh count).

@@ -142,6 +142,7 @@ python -m scripts.train_total_model    # same, for the Over/Under model
 |---|---|
 | `train_ats_model.py` | Trains/backtests the logistic regression that predicts ATS cover probability. Saves `data/ats_model.joblib`, loaded by `analysis.py` if present. |
 | `train_total_model.py` | Same, for Over/Under probability. Per its own docstring, this one is **not currently shipped** — it backtested below the "always pick Over" baseline and was deliberately not saved. |
+| `db_usage.py` | Reports how much data the app is pulling from Postgres (rows returned, biggest queries, projected GB/month vs. Supabase's 5 GB free tier). `--reset` restarts the count. |
 
 ### `db/` — schema
 

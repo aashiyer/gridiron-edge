@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends
 from backend.auth import get_current_user
 from backend.current_lines import current_lines, display_line
 from backend.database import db_session
+from backend.ttl_cache import ttl_memo
 from backend.routers.games import list_games
 
 router = APIRouter(prefix="/api/leaderboard", tags=["leaderboard"])
@@ -22,6 +23,7 @@ def _record(picks: list) -> dict:
     return {"wins": wins, "losses": losses, "pushes": pushes, "win_pct": round(wins / decided * 100, 1) if decided else None}
 
 
+@ttl_memo("season_picks", 120)
 def _season_picks(conn, season: int) -> list:
     rows = conn.execute(
         """

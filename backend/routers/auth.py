@@ -7,6 +7,7 @@ from pydantic import BaseModel, EmailStr
 from backend.auth import create_token, get_current_user, hash_password, verify_password
 from backend.avatars import decode_data_url, process_avatar, save_avatar
 from backend.database import db_session
+from backend.ttl_cache import clear_cache
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -110,6 +111,7 @@ def change_display_name(payload: DisplayNameRequest, current_user: dict = Depend
         raise HTTPException(status_code=400, detail="display name can't be empty")
     with db_session() as conn:
         conn.execute("UPDATE users SET display_name = ? WHERE user_id = ?", (name, current_user["user_id"]))
+    clear_cache("season_picks")
     return {"display_name": name}
 
 
@@ -134,6 +136,7 @@ def upload_avatar(payload: AvatarRequest, current_user: dict = Depends(get_curre
     jpeg = process_avatar(decode_data_url(payload.image))
     with db_session() as conn:
         version = save_avatar(conn, current_user["user_id"], jpeg)
+    clear_cache("season_picks")
     return {"avatar_version": version}
 
 
@@ -141,4 +144,5 @@ def upload_avatar(payload: AvatarRequest, current_user: dict = Depends(get_curre
 def delete_avatar(current_user: dict = Depends(get_current_user)):
     with db_session() as conn:
         conn.execute("UPDATE users SET avatar = NULL, avatar_version = 0 WHERE user_id = ?", (current_user["user_id"],))
+    clear_cache("season_picks")
     return {"avatar_version": 0}

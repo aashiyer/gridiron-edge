@@ -50,8 +50,24 @@ def _serialize_game(row) -> dict:
     return d
 
 
+_GAME_LIST_CACHE: dict = {}
+_GAME_LIST_TTL_SECONDS = 120
+
+
 @router.get("")
 def list_games(season: Optional[int] = None, week: Optional[int] = None, team: Optional[str] = None):
+    import time
+
+    key = (season, week, team)
+    hit = _GAME_LIST_CACHE.get(key)
+    if hit and time.time() - hit[0] < _GAME_LIST_TTL_SECONDS:
+        return hit[1]
+    result = _list_games_uncached(season, week, team)
+    _GAME_LIST_CACHE[key] = (time.time(), result)
+    return result
+
+
+def _list_games_uncached(season: Optional[int], week: Optional[int], team: Optional[str]):
     query = """
         SELECT g.*,
                CASE WHEN g.status = 'final' THEN g.home_spread_close ELSE latest.home_spread END AS current_spread,

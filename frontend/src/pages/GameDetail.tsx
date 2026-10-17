@@ -61,11 +61,13 @@ export function GameDetailPage() {
   }, [gameId]);
 
   async function reloadPicks() {
-    setPicks(await api.picks());
+    if (!detail) return;
+    setPicks(await api.picks({ season: detail.season, week: detail.week }));
   }
   useEffect(() => {
     reloadPicks();
-  }, [gameId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detail?.game_id]);
 
   if (error) {
     return (

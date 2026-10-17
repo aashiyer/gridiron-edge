@@ -116,10 +116,12 @@ export const api = {
     return req<{ season: number; week: number; entries: PowerRankingEntry[] }>(`/games/power-rankings?${qs.toString()}`);
   },
 
-  picks: (params: { result?: string; pick_type?: string } = {}) => {
+  picks: (params: { result?: string; pick_type?: string; season?: number; week?: number } = {}) => {
     const qs = new URLSearchParams();
     if (params.result) qs.set("result", params.result);
     if (params.pick_type) qs.set("pick_type", params.pick_type);
+    if (params.season) qs.set("season", String(params.season));
+    if (params.week) qs.set("week", String(params.week));
     return req<Pick[]>(`/picks?${qs.toString()}`);
   },
   createPick: (pick: {

@@ -39,3 +39,7 @@ def team_meta_for(sport: str, abbr: str) -> dict:
             "secondary": row["secondary"] or "#666666",
         }
     return {"abbr": abbr, "name": abbr, "logo": f"https://a.espncdn.com/i/teamlogos/nba/500/{abbr.lower()}.png", "color": "#333333", "secondary": "#666666"}
+
+
+def nba_team_list() -> list:
+    return sorted((team_meta_for("nba", abbr) for abbr in _nba_teams()), key=lambda t: t["name"])

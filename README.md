@@ -109,7 +109,7 @@ python -m scripts.train_total_model    # same, for the Over/Under model
 | `news.py` | Optional (`OPENAI_API_KEY`): real ESPN headlines for both teams, summarized into 1-2 sentences of qualitative context. |
 | `stadiums.py` | Static lat/long per team's home stadium, for weather lookups. |
 | `teams.py` | Static team metadata (abbreviation, name, ESPN logo, color) and `normalize_abbr` for nflverse/ESPN abbreviation mismatches. |
-| `routers/auth.py` | `/api/auth/*` — signup, login, `/me`, password/display-name change, favorite teams. |
+| `routers/auth.py` | `/api/auth/*` — signup, login, `/me`, password/display-name change, favorite teams, favorite NBA team (`user_favorite_nba_team`). |
 | `routers/games.py` | `/api/games/*` — game list/detail, recommendations, power rankings. Literal routes are registered before `/{game_id}` to avoid FastAPI's catch-all route-ordering trap. |
 | `routers/picks.py` | `/api/picks/*` — create/update/delete picks, grading (win/loss/push) against closing lines. |
 | `routers/dashboard.py` | `/api/dashboard/*` — the current user's SU/ATS/Total records (optionally for one season, used by the home page) and the vs-model comparison. |
@@ -172,7 +172,7 @@ python -m scripts.train_total_model    # same, for the Over/Under model
 | `components/TeamBadge.tsx` | Team logo rendering. |
 | `components/RecordPill.tsx` | Small W-L(-T) record display chip, reused across several pages. |
 | `components/ProtectedRoute.tsx` | Redirects to `/login` if not authenticated. |
-| `components/TeamAccentSync.tsx` | Applies the favorite-team accent color to the document root. |
+| `components/TeamAccentSync.tsx` | Applies the favorite-team accent color to the document root (NFL favorite, or the NBA favorite while NBA is selected). |
 | `components/icons.tsx` | Hand-written SVG icon set (avoids an icon-library dependency). |
 | `pages/Home.tsx` | Landing page — next game, this week's slate, SU/ATS/O-U record summary. |
 | `pages/Picker.tsx` | Make picks for a given week; polls for recommendation-cache warmup on cold games. |
@@ -188,7 +188,7 @@ python -m scripts.train_total_model    # same, for the Over/Under model
 | `components/AvatarEditor.tsx` | Settings section for choosing, cropping, saving and removing your profile picture. |
 | `components/ExportModal.tsx` | The Picker's Export dialog: choose who's included, generate the slides, preview and download them. |
 | `pages/PowerRankings.tsx` | The full GEI-ranked league table. |
-| `pages/Settings.tsx` | Display name, favorite team, password change. |
+| `pages/Settings.tsx` | Display name, favorite team, favorite NBA team, password change. |
 | `pages/AdminUsers.tsx` | Registered-user list — admin-only, rendered only when `user.is_admin`. |
 | `pages/Login.tsx` | Login/signup form. |
 

@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
@@ -86,7 +86,8 @@ def me(current_user: dict = Depends(get_current_user)):
         teams = [r["team"] for r in conn.execute(
             "SELECT team FROM user_favorite_teams WHERE user_id = ?", (current_user["user_id"],)
         ).fetchall()]
-    return {**current_user, "favorite_teams": teams}
+        nba = conn.execute("SELECT team FROM user_favorite_nba_team WHERE user_id = ?", (current_user["user_id"],)).fetchone()
+    return {**current_user, "favorite_teams": teams, "favorite_nba_team": nba["team"] if nba else None}
 
 
 @router.post("/password")
@@ -146,3 +147,16 @@ def delete_avatar(current_user: dict = Depends(get_current_user)):
         conn.execute("UPDATE users SET avatar = NULL, avatar_version = 0 WHERE user_id = ?", (current_user["user_id"],))
     clear_pick_caches()
     return {"avatar_version": 0}
+
+
+class FavoriteNbaTeamRequest(BaseModel):
+    team: Optional[str] = None
+
+
+@router.put("/favorite-nba-team")
+def set_favorite_nba_team(payload: FavoriteNbaTeamRequest, current_user: dict = Depends(get_current_user)):
+    with db_session() as conn:
+        conn.execute("DELETE FROM user_favorite_nba_team WHERE user_id = ?", (current_user["user_id"],))
+        if payload.team:
+            conn.execute("INSERT INTO user_favorite_nba_team (user_id, team) VALUES (?, ?)", (current_user["user_id"], payload.team))
+    return {"team": payload.team}

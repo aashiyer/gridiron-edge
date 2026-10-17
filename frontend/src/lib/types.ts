@@ -12,6 +12,7 @@ export interface User {
   display_name: string;
   avatar_version: number;
   favorite_teams: string[];
+  favorite_nba_team: string | null;
   is_admin: boolean;
 }
 

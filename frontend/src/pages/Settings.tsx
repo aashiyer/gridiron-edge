@@ -8,6 +8,8 @@ import { AvatarEditor } from "../components/AvatarEditor";
 export function SettingsPage() {
   const { user, refreshUser } = useAuth();
   const [teams, setTeams] = useState<TeamMeta[]>([]);
+  const [nbaTeams, setNbaTeams] = useState<TeamMeta[]>([]);
+  const [nbaSaving, setNbaSaving] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -26,7 +28,18 @@ export function SettingsPage() {
 
   useEffect(() => {
     api.teams().then(setTeams);
+    api.teams("nba").then(setNbaTeams);
   }, []);
+
+  async function chooseNbaTeam(abbr: string) {
+    setNbaSaving(true);
+    try {
+      await api.setFavoriteNbaTeam(user?.favorite_nba_team === abbr ? null : abbr);
+      await refreshUser();
+    } finally {
+      setNbaSaving(false);
+    }
+  }
 
   useEffect(() => {
     if (user) setSelected(user.favorite_teams);
@@ -159,6 +172,33 @@ export function SettingsPage() {
         </button>
         {saved && <span className="text-xs text-emerald-400">Saved</span>}
       </div>
+
+      <section>
+        <h2 className="text-sm font-bold uppercase tracking-widest text-[var(--text-muted)] mb-1">Favorite NBA Team</h2>
+        <p className="text-xs text-[var(--text-faint)] mb-4">
+          When NBA is selected, the app's colors switch to your team's. Saves as soon as you tap; tap your team again to clear it.
+          {nbaSaving && " Saving…"}
+        </p>
+        {nbaTeams.length === 0 && <div className="text-xs text-[var(--text-muted)]">NBA teams show up once the schedule has loaded.</div>}
+        <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
+          {nbaTeams.map((t) => {
+            const active = user?.favorite_nba_team === t.abbr;
+            return (
+              <button
+                key={t.abbr}
+                onClick={() => chooseNbaTeam(t.abbr)}
+                disabled={nbaSaving}
+                className={`flex flex-col items-center gap-1.5 rounded-xl border p-3 transition-colors disabled:opacity-60 ${
+                  active ? "border-[var(--accent)]/60 bg-[var(--accent)]/10" : "border-[var(--border)] bg-[var(--card)] shadow-sm hover:border-[var(--ring)]"
+                }`}
+              >
+                <TeamLogo team={t} size={32} />
+                <span className="text-[10px] font-medium text-[var(--text-muted)]">{t.abbr}</span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
 
       <section className="max-w-sm">
         <h2 className="text-sm font-bold uppercase tracking-widest text-[var(--text-muted)] mb-4">Change Password</h2>

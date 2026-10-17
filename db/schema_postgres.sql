@@ -256,3 +256,8 @@ CREATE TABLE IF NOT EXISTS recommendation_snapshots (
     payload    TEXT NOT NULL,
     frozen_at  TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS user_favorite_nba_team (
+    user_id  INTEGER PRIMARY KEY REFERENCES users(user_id),
+    team     TEXT NOT NULL
+);

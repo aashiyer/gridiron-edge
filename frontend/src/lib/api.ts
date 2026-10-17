@@ -173,7 +173,9 @@ export const api = {
   vsModel: () => req<VsModelSummary>(`/dashboard/vs-model`),
   leaderboardStandings: (season: number) => req<StandingsResponse>(`/leaderboard/standings?season=${season}&sport=${activeSport}`),
   leaderboardWeek: (season: number, week: number) => req<WeekBoard>(`/leaderboard/week?season=${season}&week=${week}&sport=${activeSport}`),
-  teams: () => req<TeamMeta[]>(`/teams`),
+  teams: (sport: Sport = "nfl") => req<TeamMeta[]>(`/teams?sport=${sport}`),
+  setFavoriteNbaTeam: (team: string | null) =>
+    req<{ team: string | null }>(`/auth/favorite-nba-team`, { method: "PUT", body: JSON.stringify({ team }) }),
 
   uploadAvatar: (image: string) => req<{ avatar_version: number }>(`/auth/avatar`, { method: "POST", body: JSON.stringify({ image }) }),
   deleteAvatar: () => req<{ avatar_version: number }>(`/auth/avatar`, { method: "DELETE" }),

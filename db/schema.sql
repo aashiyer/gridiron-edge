@@ -274,3 +274,8 @@ CREATE TABLE IF NOT EXISTS sport_teams (
     secondary  TEXT,
     PRIMARY KEY (sport, abbr)
 );
+
+CREATE TABLE IF NOT EXISTS user_favorite_nba_team (
+    user_id  INTEGER PRIMARY KEY REFERENCES users(user_id),
+    team     TEXT NOT NULL
+);

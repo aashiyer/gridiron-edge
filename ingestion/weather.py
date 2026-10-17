@@ -69,7 +69,7 @@ def sync_weather():
     with db_session() as conn:
         games = conn.execute(
             """SELECT game_id, home_team, kickoff_time, roof FROM games
-               WHERE status = 'scheduled' AND kickoff_time IS NOT NULL AND kickoff_time <= ?""",
+               WHERE sport = 'nfl' AND status = 'scheduled' AND kickoff_time IS NOT NULL AND kickoff_time <= ?""",
             (horizon,),
         ).fetchall()
         for g in games:

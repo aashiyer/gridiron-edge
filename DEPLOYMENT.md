@@ -102,12 +102,16 @@ they are kept deliberately light:
 | `gridiron-recs` | every 3 hours at :05 | scheduled games kicking off within 7 days (`recs`), ~0.6 MB per run |
 | `gridiron-recs-all` | Tue and Fri 09:30 UTC | every scheduled game this season (`recs_all`) |
 | `gridiron-keepwarm` | every 5 min | `/api/health`, never touches the database |
+| GitHub Actions `nba` | every 4 hours | NBA scores and lines (one scoreboard request per day, a few rows written; free because the repo is public) |
+| GitHub Actions `nba_schedule` | Monday | fills in the next 60 days of NBA schedule |
 
 Other savings: repeated lookups inside a refresh are memoized
 (`backend/ttl_cache.py`), the game list and leaderboard data are cached on the
 server for a couple of minutes (and cleared when anyone changes a pick), the
 Picker and game page only fetch the current week's picks, My Picks fetches one
 season at a time, and browser tabs only poll while visible (every 10-15 min).
+
+NBA is built to stay within the same budget: the leaderboard and records read one summary row per person, week, market and result instead of every pick; the Picker loads one week of games at a time; NBA game data is cached for 10 minutes on the server; and odds rows are written only when a line changes.
 
 Check usage any time with `DATABASE_URL=... python -m scripts.db_usage`
 (`--reset` starts a fresh count).

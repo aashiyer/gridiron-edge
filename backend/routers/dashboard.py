@@ -18,12 +18,12 @@ def _record(rows, field: str = "result") -> dict:
 
 
 @router.get("")
-def dashboard_summary(season: Optional[int] = None, current_user: dict = Depends(get_current_user)):
+def dashboard_summary(season: Optional[int] = None, current_user: dict = Depends(get_current_user), sport: str = "nfl"):
     query = (
         "SELECT p.pick_type, p.result FROM picks p JOIN games g ON g.game_id = p.game_id"
-        " WHERE p.user_id = ? AND p.result IN ('win', 'loss', 'push')"
+        " WHERE p.user_id = ? AND g.sport = ? AND p.result IN ('win', 'loss', 'push')"
     )
-    params: list = [current_user["user_id"]]
+    params: list = [current_user["user_id"], "nba" if sport == "nba" else "nfl"]
     if season is not None:
         query += " AND g.season = ?"
         params.append(season)
@@ -49,7 +49,7 @@ def vs_model(current_user: dict = Depends(get_current_user)):
             """
             SELECT p.*, g.season, g.week, g.home_team, g.away_team, g.final_home_score, g.final_away_score
             FROM picks p JOIN games g ON g.game_id = p.game_id
-            WHERE p.model_lean IS NOT NULL AND p.user_id = ?
+            WHERE p.model_lean IS NOT NULL AND g.sport = 'nfl' AND p.user_id = ?
             """,
             (current_user["user_id"],),
         ).fetchall()

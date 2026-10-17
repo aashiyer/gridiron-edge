@@ -118,7 +118,7 @@ def sync_pbp_stats(start_season: int, end_season: int):
     init_db()
     with db_session() as conn:
         games = conn.execute(
-            "SELECT season, week, home_team, away_team, final_home_score, final_away_score FROM games WHERE status = 'final'"
+            "SELECT season, week, home_team, away_team, final_home_score, final_away_score FROM games WHERE sport = 'nfl' AND status = 'final'"
         ).fetchall()
         points = {}
         for g in games:

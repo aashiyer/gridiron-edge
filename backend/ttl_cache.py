@@ -26,5 +26,5 @@ def clear_cache(name: str):
 
 
 def clear_pick_caches():
-    for name in ("season_picks", "records", "records_group"):
+    for name in ("season_picks", "week_picks_nba", "records", "records_group"):
         clear_cache(name)

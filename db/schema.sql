@@ -25,10 +25,12 @@ CREATE TABLE IF NOT EXISTS games (
     div_game            INTEGER, -- 1 if divisional matchup
     temp                REAL,    -- game-time temperature, Fahrenheit (recorded for past games, forecast for upcoming)
     wind                REAL,    -- game-time wind speed, mph
-    precip_pct          REAL     -- forecast precipitation probability, % (upcoming games only)
+    precip_pct          REAL,    -- forecast precipitation probability, % (upcoming games only)
+    sport               TEXT NOT NULL DEFAULT 'nfl'
 );
 
 CREATE INDEX IF NOT EXISTS idx_games_season_week ON games(season, week);
+CREATE INDEX IF NOT EXISTS idx_games_sport ON games(sport, season, week);
 
 CREATE TABLE IF NOT EXISTS odds_snapshots (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -261,4 +263,14 @@ CREATE TABLE IF NOT EXISTS recommendation_snapshots (
     game_id    TEXT PRIMARY KEY,
     payload    TEXT NOT NULL,
     frozen_at  TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS sport_teams (
+    sport      TEXT NOT NULL,
+    abbr       TEXT NOT NULL,
+    name       TEXT NOT NULL,
+    logo       TEXT,
+    color      TEXT,
+    secondary  TEXT,
+    PRIMARY KEY (sport, abbr)
 );

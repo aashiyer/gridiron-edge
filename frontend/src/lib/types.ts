@@ -134,7 +134,7 @@ export interface StandingsEntry {
   ats: Record;
   total: Record;
   games_picked: number;
-  games_available: number;
+  games_available: number | null;
   best_week: WeekAward | null;
   worst_week: WeekAward | null;
   week_wins: number;
@@ -423,4 +423,11 @@ export interface RecordsResponse {
   season_rows: SeasonRow[];
   splits: { ats: SplitGroup[]; straight_up: SplitGroup[] };
   teams: { ats: { [team: string]: Record }; straight_up: { [team: string]: Record } };
+  team_meta: { [team: string]: TeamMeta };
+}
+
+export interface WeeksResponse {
+  season: number;
+  weeks: { week: number; games: number; complete: boolean; first_kickoff: string | null }[];
+  current_week: number | null;
 }

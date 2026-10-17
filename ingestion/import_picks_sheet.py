@@ -45,7 +45,7 @@ def read_sheet(path: str):
 
 
 def plan_import(conn, rows, season: int, name: str, user_id: int):
-    season_games = conn.execute("SELECT * FROM games WHERE season = ? ORDER BY kickoff_time", (season,)).fetchall()
+    season_games = conn.execute("SELECT * FROM games WHERE sport = 'nfl' AND season = ? ORDER BY kickoff_time", (season,)).fetchall()
     games = {(g["week"], g["away_team"], g["home_team"]): g for g in season_games}
     by_pair: dict = {}
     for g in season_games:

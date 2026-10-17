@@ -12,7 +12,7 @@ def kalshi_odds(season: int, week: int):
         games = [
             dict(r)
             for r in conn.execute(
-                "SELECT game_id, home_team, away_team, kickoff_time FROM games WHERE season = ? AND week = ? AND status != 'final'",
+                "SELECT game_id, home_team, away_team, kickoff_time FROM games WHERE sport = 'nfl' AND season = ? AND week = ? AND status != 'final'",
                 (season, week),
             ).fetchall()
         ]

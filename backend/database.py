@@ -46,6 +46,7 @@ _GAMES_MIGRATIONS = [
     ("temp", "REAL"),
     ("wind", "REAL"),
     ("precip_pct", "REAL"),
+    ("sport", "TEXT NOT NULL DEFAULT 'nfl'"),
 ]
 
 

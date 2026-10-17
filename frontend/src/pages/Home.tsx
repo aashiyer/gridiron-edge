@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import { useAuth } from "../lib/AuthContext";
 import type { Game, DashboardSummary, VsModelSummary, Recommendation, Record as PickRecord } from "../lib/types";
 import { TeamLogo } from "../components/TeamBadge";
+import { useSport } from "../lib/SportContext";
 
 function fmtRecord(record?: PickRecord) {
   if (!record) return "—";
@@ -30,7 +31,7 @@ function countdown(iso: string | null): string | null {
   return `${mins}m`;
 }
 
-export function Home() {
+function HomeNfl() {
   const { user } = useAuth();
   const [games, setGames] = useState<Game[]>([]);
   const [dashboard, setDashboard] = useState<DashboardSummary | null>(null);
@@ -220,6 +221,103 @@ export function Home() {
           </div>
         </section>
       )}
+    </div>
+  );
+}
+
+export function Home() {
+  const { sport } = useSport();
+  return sport === "nba" ? <HomeNba /> : <HomeNfl />;
+}
+
+const EASTERN_DAY = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" });
+
+function HomeNba() {
+  const { user } = useAuth();
+  const [season, setSeason] = useState<number | null>(null);
+  const [dashboard, setDashboard] = useState<DashboardSummary | null>(null);
+  const [games, setGames] = useState<Game[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.seasons().then(async (list) => {
+      const latest = list.length ? Math.max(...list) : new Date().getFullYear();
+      if (cancelled) return;
+      setSeason(latest);
+      const [d, weeks] = await Promise.all([api.dashboard({ season: latest }), api.weeks(latest)]);
+      const slate = weeks.current_week !== null ? await api.games({ season: latest, week: weeks.current_week }) : [];
+      if (cancelled) return;
+      setDashboard(d);
+      setGames(slate);
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const upcoming = useMemo(() => {
+    const open = games.filter((g) => g.status === "scheduled" && g.kickoff_time);
+    const today = EASTERN_DAY.format(new Date());
+    const dayOf = (g: Game) => EASTERN_DAY.format(new Date(g.kickoff_time!));
+    const days = Array.from(new Set(open.map(dayOf))).sort();
+    const next = days.find((d) => d >= today) ?? days[0];
+    return next ? { day: next, games: open.filter((g) => dayOf(g) === next) } : null;
+  }, [games]);
+
+  if (loading) return <div className="max-w-6xl mx-auto px-4 py-6 text-[var(--text-muted)] text-sm">Loading…</div>;
+
+  return (
+    <div className="max-w-6xl mx-auto px-4 py-8 flex flex-col gap-10">
+      <section>
+        <h2 className="text-sm font-bold uppercase tracking-widest text-[var(--text-muted)] mb-4">
+          Your NBA record{season ? ` · ${season}-${String(season + 1).slice(2)}` : ""}
+        </h2>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <StatCard label="Straight up" value={fmtRecord(dashboard?.straight_up)} sub={dashboard?.straight_up.win_pct != null ? `${dashboard.straight_up.win_pct}%` : undefined} accent="cyan" />
+          <StatCard label="Against the spread" value={fmtRecord(dashboard?.ats)} sub={dashboard?.ats.win_pct != null ? `${dashboard.ats.win_pct}%` : undefined} accent="cyan" />
+          <StatCard label="Over / under" value={fmtRecord(dashboard?.total)} sub={dashboard?.total.win_pct != null ? `${dashboard.total.win_pct}%` : undefined} accent="cyan" />
+        </div>
+      </section>
+
+      <section>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-bold uppercase tracking-widest text-[var(--text-muted)]">
+            {upcoming ? `Games on ${new Date(`${upcoming.day}T12:00:00`).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}` : "Games"}
+          </h2>
+          <Link to="/picker" className="text-xs font-medium text-[var(--accent)]">
+            Make your picks →
+          </Link>
+        </div>
+        {!upcoming && (
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm p-8 text-center text-[var(--text-muted)] text-sm">
+            No upcoming NBA games yet{user ? "" : ""}. Check back once the schedule is posted.
+          </div>
+        )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+          {upcoming?.games.map((g) => {
+            const spread = g.current_spread ?? g.home_spread_close;
+            return (
+              <Link
+                key={g.game_id}
+                to="/picker"
+                className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-3 hover:border-[var(--accent)]/30 hover:bg-[var(--surface-hover)] transition-colors"
+              >
+                <TeamLogo team={g.away} size={26} />
+                <span className="text-sm font-semibold text-[var(--text)]">{g.away.abbr}</span>
+                <span className="text-[10px] text-[var(--text-faint)]">@</span>
+                <TeamLogo team={g.home} size={26} />
+                <span className="text-sm font-semibold text-[var(--text)]">{g.home.abbr}</span>
+                <span className="ml-auto text-right text-[11px] text-[var(--text-muted)] leading-tight">
+                  <span className="block">{new Date(g.kickoff_time!).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</span>
+                  {spread !== null && <span className="block">{g.home.abbr} {spread > 0 ? "+" : ""}{spread}</span>}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
     </div>
   );
 }

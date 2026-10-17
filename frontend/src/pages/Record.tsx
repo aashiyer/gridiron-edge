@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../lib/api";
+import { useSport } from "../lib/SportContext";
 import type { Record as PickRecord, RecordsResponse, WeekMark } from "../lib/types";
 import { Avatar } from "../components/Avatar";
 import { TrendChart, type TrendMode } from "../components/TrendChart";
@@ -77,6 +78,7 @@ function WeekChip({ title, mark, good }: { title: string; mark: WeekMark | null;
 }
 
 export function RecordPage() {
+  const { sport } = useSport();
   const [params, setParams] = useSearchParams();
   const [data, setData] = useState<RecordsResponse | null>(null);
   const [error, setError] = useState(false);
@@ -91,6 +93,7 @@ export function RecordPage() {
   useEffect(() => {
     let cancelled = false;
     setError(false);
+    setData(null);
     api
       .records({ user_id: userId, season })
       .then((r) => !cancelled && setData(r))
@@ -98,7 +101,7 @@ export function RecordPage() {
     return () => {
       cancelled = true;
     };
-  }, [userId, season]);
+  }, [userId, season, sport]);
 
   function update(next: { user?: number | null; season?: string | null }) {
     const p = new URLSearchParams(params);
@@ -154,22 +157,35 @@ export function RecordPage() {
             <option value="all">All time</option>
             {data.available_seasons.map((s) => (
               <option key={s} value={s}>
-                {s} season
+                {sport === "nba" ? `${s}-${String(s + 1).slice(2)}` : s} season
               </option>
             ))}
           </select>
         </div>
       </div>
 
-      <Segmented
-        label="Market"
-        value={market}
-        options={[
-          ["ats", "Against the spread"],
-          ["straight_up", "Straight up"],
-        ]}
-        onChange={setMarket}
-      />
+      <div role="tablist" aria-label="Market" className="flex gap-2">
+        {(
+          [
+            ["ats", "ATS"],
+            ["straight_up", "Straight up"],
+          ] as [Market, string][]
+        ).map(([value, text]) => (
+          <button
+            key={value}
+            role="tab"
+            aria-selected={market === value}
+            onClick={() => setMarket(value)}
+            className={`rounded-xl border px-5 py-2 text-sm font-semibold transition-colors ${
+              market === value
+                ? "bg-[var(--accent)] border-[var(--accent)] text-[var(--accent-text)] shadow-sm"
+                : "border-[var(--border)] bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--text)] hover:border-[var(--accent)]/50"
+            }`}
+          >
+            {text}
+          </button>
+        ))}
+      </div>
 
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm p-4 sm:p-6 flex flex-col gap-5">
         <div className="flex items-center gap-4">
@@ -312,7 +328,7 @@ export function RecordPage() {
         {teams.length === 0 && <div className="text-sm text-[var(--text-faint)]">No graded picks yet.</div>}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
           {teams.map(({ team, rec, n }) => {
-            const meta = team_meta_lookup(team);
+            const meta = data.team_meta?.[team] ?? team_meta_lookup(team);
             return (
               <div
                 key={team}

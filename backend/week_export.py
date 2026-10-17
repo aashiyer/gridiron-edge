@@ -7,8 +7,8 @@ from zoneinfo import ZoneInfo
 import requests
 
 from backend.database import db_session
-from backend.routers.leaderboard import week_board
-from backend.teams import team_meta
+from backend.routers.leaderboard import standings, week_board
+from backend.sports import team_meta_for
 
 MAX_PEOPLE = 4
 GAMES_PER_SLIDE = 7
@@ -20,15 +20,16 @@ _BLANK_PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwC
 _PALETTE = ["#6f8cff", "#f59e0b", "#22c55e", "#ec4899", "#14b8a6", "#a855f7"]
 
 
-def _logo_uri(abbr: str) -> str:
-    if abbr not in _LOGOS:
+def _logo_uri(sport: str, abbr: str) -> str:
+    key = (sport, abbr)
+    if key not in _LOGOS:
         try:
-            r = requests.get(team_meta(abbr)["logo"], timeout=6)
+            r = requests.get(team_meta_for(sport, abbr)["logo"], timeout=6)
             r.raise_for_status()
-            _LOGOS[abbr] = "data:image/png;base64," + base64.b64encode(r.content).decode()
+            _LOGOS[key] = "data:image/png;base64," + base64.b64encode(r.content).decode()
         except Exception:
-            _LOGOS[abbr] = _BLANK_PNG
-    return _LOGOS[abbr]
+            _LOGOS[key] = _BLANK_PNG
+    return _LOGOS[key]
 
 
 def _initials_uri(name: str, user_id: int) -> str:
@@ -92,10 +93,10 @@ def _kickoff(iso) -> str:
     return d.strftime("%a %-I:%M %p")
 
 
-def _chip(pick, size: dict) -> str:
+def _chip(pick, sport: str) -> str:
     if not pick or pick["missed"] or pick["selection"] is None:
         return '<span class="chip none">—</span>'
-    meta = team_meta(pick["selection"])
+    meta = team_meta_for(sport, pick["selection"])
     badge = {"win": '<i class="badge win">✓</i>', "loss": '<i class="badge loss">✗</i>', "push": '<i class="badge push">P</i>'}.get(pick["result"], "")
     return (
         f'<span class="chip" style="background:{meta["color"]};border-color:{meta["secondary"]};color:{_readable_on(meta["color"])}">'
@@ -144,26 +145,21 @@ tr.split td.game {{ box-shadow: inset 6px 0 0 #6f8cff }}
 """
 
 
-def _cover(week: int, users: list, avatars: dict, prev_records: dict | None, prev_week: int | None, season: int) -> str:
+def _cover(title: tuple, subtitle: str, users: list, avatars: dict, records_by_user: dict | None, label: str) -> str:
     rows = ""
-    if prev_records:
-        for u in users:
-            r = prev_records[str(u["user_id"])]
-            rows += (
-                f'<div class="prow"><img class="bigav" src="{avatars[u["user_id"]]}"><div class="pinfo"><div class="pname">{u["display_name"]}</div>'
+    for u in users:
+        r = (records_by_user or {}).get(str(u["user_id"]))
+        stats = ""
+        if r:
+            stats = (
                 f'<div class="stats"><div class="stat"><div class="sl">Straight up</div><div class="sv">{_fmt_rec(r["straight_up"])}</div><div class="sp">{_pct(r["straight_up"])}</div></div>'
-                f'<div class="stat"><div class="sl">Against the spread</div><div class="sv">{_fmt_rec(r["ats"])}</div><div class="sp">{_pct(r["ats"])}</div></div></div></div></div>'
+                f'<div class="stat"><div class="sl">Against the spread</div><div class="sv">{_fmt_rec(r["ats"])}</div><div class="sp">{_pct(r["ats"])}</div></div></div>'
             )
-    else:
-        rows = "".join(
-            f'<div class="prow"><img class="bigav" src="{avatars[u["user_id"]]}"><div class="pinfo"><div class="pname">{u["display_name"]}</div></div></div>'
-            for u in users
-        )
-    label = f"How we finished Week {prev_week}" if prev_records else "This week's crew"
+        rows += f'<div class="prow"><img class="bigav" src="{avatars[u["user_id"]]}"><div class="pinfo"><div class="pname">{u["display_name"]}</div>{stats}</div></div>'
     names = " · ".join(u["display_name"] for u in users)
     return (
-        f'<section class="slide cover"><div class="brand">PICK<em>SIX</em></div><h1>WEEK {week}<br>PICKS</h1>'
-        f'<div class="sub">{season} NFL Season · {names}</div><div class="label">{label}</div><div class="plist">{rows}</div>'
+        f'<section class="slide cover"><div class="brand">PICK<em>SIX</em></div><h1>{title[0]}<br>{title[1]}</h1>'
+        f'<div class="sub">{subtitle} · {names}</div><div class="label">{label}</div><div class="plist">{rows}</div>'
         f'<div class="swipe">Swipe for the picks →</div></section>'
     )
 
@@ -177,7 +173,7 @@ def _ats_split(game: dict, board: dict, users: list) -> bool:
     return len(picked) > 1
 
 
-def _picks_slide(chunk: list, idx: int, total: int, week: int, board: dict, users: list, avatars: dict, split_count: int, n_games: int) -> str:
+def _picks_slide(chunk: list, idx: int, total: int, page_label: str, board: dict, users: list, avatars: dict, split_count: int, n_games: int, sport: str) -> str:
     head = "".join(f'<th colspan="2" class="person"><img src="{avatars[u["user_id"]]}"><div>{u["display_name"]}</div></th>' for u in users)
     sub = "".join('<th class="sub">SU</th><th class="sub">ATS</th>' for _ in users)
     pad = 33 if len(chunk) >= 6 else 38
@@ -188,50 +184,86 @@ def _picks_slide(chunk: list, idx: int, total: int, week: int, board: dict, user
         for u in users:
             picks = board["picks"].get(g["game_id"], {}).get(str(u["user_id"]), {})
             cells += (
-                f'<td class="pickcell" style="padding:{pad}px 4px">{_chip(picks.get("straight_up"), {})}</td>'
-                f'<td style="padding:{pad}px 4px">{_chip(picks.get("ats"), {})}</td>'
+                f'<td class="pickcell" style="padding:{pad}px 4px">{_chip(picks.get("straight_up"), sport)}</td>'
+                f'<td style="padding:{pad}px 4px">{_chip(picks.get("ats"), sport)}</td>'
             )
         rows.append(
             f'<tr class="{"split" if _ats_split(g, board, users) else ""}"><td class="game" style="padding-top:{pad}px;padding-bottom:{pad}px">'
-            f'<div class="teams"><img src="{_logo_uri(g["away_team"])}"><b>{g["away_team"]}</b><span class="at">@</span><img src="{_logo_uri(g["home_team"])}"><b>{g["home_team"]}</b></div>'
+            f'<div class="teams"><img src="{_logo_uri(sport, g["away_team"])}"><b>{g["away_team"]}</b><span class="at">@</span><img src="{_logo_uri(sport, g["home_team"])}"><b>{g["home_team"]}</b></div>'
             f'<div class="meta">{meta}</div></td>{cells}</tr>'
         )
-    foot = (
-        f'<div class="legend"><span class="bar"></span> We split on the ATS pick in {split_count} of {n_games} games</div>'
-        if idx == total
-        else '<div class="swipe">Swipe for the rest →</div>'
-    )
+    if idx != total:
+        foot = '<div class="swipe">Swipe for the rest →</div>'
+    elif split_count:
+        foot = f'<div class="legend"><span class="bar"></span> We split on the ATS pick in {split_count} of {n_games} games</div>'
+    else:
+        foot = ""
     return (
-        f'<section class="slide picks"><div class="top"><div class="brand">PICK<em>SIX</em></div><div class="pg">WEEK {week} PICKS · {idx}/{total}</div></div>'
+        f'<section class="slide picks"><div class="top"><div class="brand">PICK<em>SIX</em></div><div class="pg">{page_label} · {idx}/{total}</div></div>'
         f'<table><thead><tr><th class="left" rowspan="2"></th>{head}</tr><tr>{sub}</tr></thead><tbody>{"".join(rows)}</tbody></table>{foot}</section>'
     )
 
 
-def render_week_slides(season: int, week: int, user_ids: list | None = None) -> list:
+def _eastern_day(kickoff) -> str | None:
+    try:
+        if kickoff.endswith("Z"):
+            d = datetime.strptime(kickoff, "%Y-%m-%dT%H:%MZ").replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo("America/New_York"))
+        else:
+            d = datetime.strptime(kickoff[:16], "%Y-%m-%dT%H:%M")
+    except (TypeError, ValueError, AttributeError):
+        return None
+    return d.strftime("%Y-%m-%d")
+
+
+def _made_pick(board: dict, game_id: str, user_ids: list) -> bool:
+    by_user = board["picks"].get(game_id, {})
+    for uid in user_ids:
+        for pick in by_user.get(str(uid), {}).values():
+            if not pick["missed"] and pick["selection"] is not None:
+                return True
+    return False
+
+
+def render_week_slides(season: int, week: int, user_ids: list | None = None, sport: str = "nfl", day: str | None = None) -> list:
     me = {"user_id": 0}
-    board = week_board(season, week, me)
-    if not board["games"]:
+    board = week_board(season, week, me, sport)
+    games = board["games"]
+    if not games:
         return []
     users = [u for u in board["users"] if not user_ids or u["user_id"] in user_ids][:MAX_PEOPLE]
     if not users:
         return []
 
-    prev_records, prev_week = None, None
-    if week > 1:
-        prev = week_board(season, week - 1, me)
-        if prev["games"] and all(str(u["user_id"]) in prev["records"] for u in users):
-            prev_records, prev_week = prev["records"], week - 1
+    if sport == "nba":
+        if day:
+            games = [g for g in games if _eastern_day(g["kickoff_time"]) == day]
+        games = [g for g in games if _made_pick(board, g["game_id"], [u["user_id"] for u in users])]
+        if not games:
+            return []
+        day_label = datetime.strptime(day, "%Y-%m-%d").strftime("%a %b %-d") if day else f"Week {week}"
+        records_by_user = {str(e["user_id"]): e for e in standings(season, me, "nba")["entries"]}
+        title, subtitle, label, page_label = ("NBA", "PICKS"), f"{day_label} · {season}-{str(season + 1)[2:]} season", "Season so far", f"NBA PICKS · {day_label.upper()}"
+    else:
+        prev_records = None
+        prev_week = None
+        if week > 1:
+            prev = week_board(season, week - 1, me, sport)
+            if prev["games"] and all(str(u["user_id"]) in prev["records"] for u in users):
+                prev_records, prev_week = prev["records"], week - 1
+        records_by_user = prev_records
+        title, subtitle = (f"WEEK {week}", "PICKS"), f"{season} NFL Season"
+        label = f"How we finished Week {prev_week}" if prev_records else "This week's crew"
+        page_label = f"WEEK {week} PICKS"
 
     avatars = _avatar_uris(users)
-    games = board["games"]
     n_chunks = math.ceil(len(games) / GAMES_PER_SLIDE)
     size = math.ceil(len(games) / n_chunks)
     chunks = [games[i : i + size] for i in range(0, len(games), size)]
     split_count = sum(_ats_split(g, board, users) for g in games)
 
-    sections = [_cover(week, users, avatars, prev_records, prev_week, season)]
+    sections = [_cover(title, subtitle, users, avatars, records_by_user, label)]
     for i, chunk in enumerate(chunks, start=1):
-        sections.append(_picks_slide(chunk, i, len(chunks), week, board, users, avatars, split_count, len(games)))
+        sections.append(_picks_slide(chunk, i, len(chunks), page_label, board, users, avatars, split_count, len(games), sport))
     html = f'<!doctype html><html><head><meta charset="utf-8"><style>{_css(len(users))}</style></head><body>{"".join(sections)}</body></html>'
 
     from weasyprint import HTML
@@ -243,6 +275,6 @@ def render_week_slides(season: int, week: int, user_ids: list | None = None) -> 
         slides = []
         for i, page in enumerate(doc, start=1):
             png = page.get_pixmap(dpi=96).tobytes("png")
-            slides.append({"filename": f"picksix_week{week}_slide{i}.png", "image": "data:image/png;base64," + base64.b64encode(png).decode()})
+            slides.append({"filename": f"picksix_{sport}_{day or 'week' + str(week)}_slide{i}.png", "image": "data:image/png;base64," + base64.b64encode(png).decode()})
         doc.close()
     return slides

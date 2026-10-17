@@ -49,7 +49,7 @@ def build_dataset(conn, min_season: int, max_season: int):
     games = conn.execute(
         """
         SELECT * FROM games
-        WHERE status = 'final' AND total_close IS NOT NULL
+        WHERE sport = 'nfl' AND status = 'final' AND total_close IS NOT NULL
           AND season >= ? AND season <= ?
         ORDER BY kickoff_time ASC
         """,

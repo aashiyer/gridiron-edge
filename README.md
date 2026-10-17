@@ -101,6 +101,7 @@ python -m scripts.train_total_model    # same, for the Over/Under model
 | `ttl_cache.py` | `ttl_memo` decorator: short-lived in-process cache for read-only lookups repeated across a recommendation refresh, keeping database reads (and Supabase egress) low. |
 | `current_lines.py` | Looks up the current (latest pre-kickoff) spread/total for games and works out the line a pick effectively sits on: pending picks follow the live line, graded picks show the line they were graded at. |
 | `kalshi.py` | Reads Kalshi's public NFL markets (winner, spread ladder, total ladder) and matches them to our games; served by `routers/kalshi.py` for the Picker's Percentage view. |
+| `sports.py` | Sport helpers: which sports exist, NBA game-id prefixing, and sport-aware team metadata (NFL teams are built in; NBA teams, colors and logos come from the `sport_teams` table filled by the NBA ingestion). |
 | `avatars.py` | Profile-picture processing: decodes an uploaded image, crops it square, resizes to 256 px and re-encodes it as JPEG before it's stored on the user row. |
 | `week_export.py` | Builds the Picker's Instagram export: renders a cover plus picks slides (1080×1350 PNG) for a chosen week and set of people, using WeasyPrint for layout and PyMuPDF to rasterize. |
 | `historical_injury_signal.py` | Backtestable QB-stability/experience/injury-load signals, computed from real historical usage data (not live scraping) so they can be used as trained-model features. |
@@ -126,6 +127,7 @@ python -m scripts.train_total_model    # same, for the Over/Under model
 |---|---|
 | `tick.py` | Entry point for every scheduled job (`python -m ingestion.tick --job <name>`). `JOBS` dict maps a name to a function; see `.github/workflows/cron.yml` for the schedule. |
 | `import_picks_sheet.py` | One-off importer for the group's Excel picks sheets (any season's layout, 2023 onward): `python -m ingestion.import_picks_sheet --file <xlsx> --season <year> --user Name=email [--apply]`. Dry run by default; only adds picks the app doesn't already have (app picks win), using the sheet's own lines and the app's final scores. Games without a week label are matched by team pair in order. |
+| `nba.py` | Pulls the NBA schedule, scores and DraftKings lines from ESPN's public scoreboard (one small request per day) into the shared `games` table (`sport = 'nba'`). Writes a line snapshot only when a line changes. Run by the `nba` and `nba_schedule` jobs. |
 | `espn_odds.py` | Polls ESPN's unofficial API for the current week's live odds, scores, and status; auto-grades picks on games going final. |
 | `backfill_historical.py` | One-time-per-range backfill of `games` (schedules, closing lines, results) from nflverse. |
 | `pbp_stats.py` | Aggregates nflverse play-by-play into team-week efficiency stats (EPA/play, success rate, yards/play, 3rd-down%, red-zone%, turnovers). |
@@ -181,6 +183,8 @@ python -m scripts.train_total_model    # same, for the Over/Under model
 | `pages/VsModel.tsx` | Side-by-side user-vs-model record, and every pick where they disagreed. |
 | `pages/Leaderboard.tsx` | Season / week standings toggle on top, then a week grid of every user's pick per game (ATS / SU / O/U tabs, colored by result) with an expandable game-by-game breakdown. |
 | `components/Avatar.tsx` | Round profile picture for a user, falling back to a colored initial. |
+| `components/SportToggle.tsx` | The NFL / NBA switch in the sidebar and mobile header; hides football-only tabs while NBA is selected. |
+| `lib/SportContext.tsx` | Remembers the selected sport (in the browser) and feeds it to the API client, so every page just shows that sport's data. |
 | `components/AvatarEditor.tsx` | Settings section for choosing, cropping, saving and removing your profile picture. |
 | `components/ExportModal.tsx` | The Picker's Export dialog: choose who's included, generate the slides, preview and download them. |
 | `pages/PowerRankings.tsx` | The full GEI-ranked league table. |

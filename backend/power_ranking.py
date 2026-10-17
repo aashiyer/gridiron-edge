@@ -97,7 +97,7 @@ def _season_game_rows(conn, season: int, through_week: int):
     games = conn.execute(
         """
         SELECT game_id, week, home_team, away_team, final_home_score, final_away_score
-        FROM games WHERE season = ? AND week <= ? AND status = 'final'
+        FROM games WHERE sport = 'nfl' AND season = ? AND week <= ? AND status = 'final'
         """,
         (season, through_week),
     ).fetchall()

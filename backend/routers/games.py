@@ -4,6 +4,7 @@ from fastapi import APIRouter
 from typing import Optional
 
 from backend.database import db_session
+from backend.sports import normalize_sport, team_meta_for
 from backend.teams import team_meta
 from backend.analysis import cached_recommendation, cached_recommendations_batch, refresh_recommendation
 
@@ -45,30 +46,40 @@ def _warm_in_background(game_ids: list):
 
 def _serialize_game(row) -> dict:
     d = {k.lower(): v for k, v in dict(row).items()}
-    d["home"] = team_meta(d["home_team"])
-    d["away"] = team_meta(d["away_team"])
+    sport = d.get("sport") or "nfl"
+    d["home"] = team_meta_for(sport, d["home_team"])
+    d["away"] = team_meta_for(sport, d["away_team"])
     return d
 
 
 _GAME_LIST_CACHE: dict = {}
-_GAME_LIST_TTL_SECONDS = 120
+_GAME_LIST_TTL_SECONDS = {"nfl": 120, "nba": 600}
 
 
 @router.get("")
-def list_games(season: Optional[int] = None, week: Optional[int] = None, team: Optional[str] = None):
+def list_games(season: Optional[int] = None, week: Optional[int] = None, team: Optional[str] = None, sport: str = "nfl"):
     import time
 
-    key = (season, week, team)
+    sport = normalize_sport(sport)
+    key = (sport, season, week, team)
     hit = _GAME_LIST_CACHE.get(key)
-    if hit and time.time() - hit[0] < _GAME_LIST_TTL_SECONDS:
+    if hit and time.time() - hit[0] < _GAME_LIST_TTL_SECONDS[sport]:
         return hit[1]
-    result = _list_games_uncached(season, week, team)
+    result = _list_games_uncached(season, week, team, sport)
     _GAME_LIST_CACHE[key] = (time.time(), result)
     return result
 
 
-def _list_games_uncached(season: Optional[int], week: Optional[int], team: Optional[str]):
-    query = """
+def _list_games_uncached(season: Optional[int], week: Optional[int], team: Optional[str], sport: str):
+    inner = "gk.sport = ?"
+    inner_params: list = [sport]
+    if season is not None:
+        inner += " AND gk.season = ?"
+        inner_params.append(season)
+    if week is not None:
+        inner += " AND gk.week = ?"
+        inner_params.append(week)
+    query = f"""
         SELECT g.*,
                CASE WHEN g.status = 'final' THEN g.home_spread_close ELSE latest.home_spread END AS current_spread,
                CASE WHEN g.status = 'final' THEN g.total_close ELSE latest.total END AS current_total,
@@ -77,25 +88,18 @@ def _list_games_uncached(season: Optional[int], week: Optional[int], team: Optio
                latest.captured_at AS odds_updated_at
         FROM games g
         LEFT JOIN (
-            -- ORDER BY id as a tiebreaker on captured_at matters: a single
-            -- poll can insert several provider rows sharing one timestamp
-            -- (see ingestion/espn_odds.py's record_odds_snapshot), and
-            -- without it this join fans a game out into one row per tied
-            -- provider — permanently, for any game whose last-ever poll
-            -- (e.g. the closing snapshot right as it goes final) had
-            -- multiple providers report at once.
             SELECT * FROM (
                 SELECT o.*, ROW_NUMBER() OVER (
                     PARTITION BY o.game_id ORDER BY o.captured_at DESC, o.id DESC
                 ) AS rn
                 FROM odds_snapshots o
                 JOIN games gk ON gk.game_id = o.game_id
-                WHERE gk.kickoff_time IS NULL OR o.captured_at <= gk.kickoff_time
+                WHERE {inner} AND (gk.kickoff_time IS NULL OR o.captured_at <= gk.kickoff_time)
             ) ranked WHERE rn = 1
         ) latest ON latest.game_id = g.game_id
-        WHERE 1=1
+        WHERE g.sport = ?
     """
-    params = []
+    params = inner_params + [sport]
     if season is not None:
         query += " AND g.season = ?"
         params.append(season)
@@ -110,6 +114,35 @@ def _list_games_uncached(season: Optional[int], week: Optional[int], team: Optio
     with db_session() as conn:
         rows = conn.execute(query, params).fetchall()
     return [_serialize_game(r) for r in rows]
+
+
+_WEEKS_CACHE: dict = {}
+
+
+@router.get("/weeks")
+def list_weeks(season: int, sport: str = "nfl"):
+    """Which weeks exist for a season and which one is current, without loading
+    any games — the pickers use this to build their week dropdown cheaply."""
+    import time
+
+    sport = normalize_sport(sport)
+    key = (sport, season)
+    hit = _WEEKS_CACHE.get(key)
+    if hit and time.time() - hit[0] < _GAME_LIST_TTL_SECONDS[sport]:
+        return hit[1]
+    with db_session() as conn:
+        rows = conn.execute(
+            """
+            SELECT week, COUNT(*) AS n, SUM(CASE WHEN status = 'final' THEN 1 ELSE 0 END) AS final_n, MIN(kickoff_time) AS first_kickoff
+            FROM games WHERE season = ? AND sport = ? GROUP BY week ORDER BY week
+            """,
+            (season, sport),
+        ).fetchall()
+    weeks = [{"week": r["week"], "games": r["n"], "complete": r["final_n"] == r["n"], "first_kickoff": r["first_kickoff"]} for r in rows]
+    current = next((w["week"] for w in weeks if not w["complete"]), weeks[-1]["week"] if weeks else None)
+    result = {"season": season, "weeks": weeks, "current_week": current}
+    _WEEKS_CACHE[key] = (time.time(), result)
+    return result
 
 
 @router.get("/recommendations")
@@ -131,7 +164,7 @@ def get_recommendations(season: int, week: int):
     not."""
     with db_session() as conn:
         rows = conn.execute(
-            "SELECT game_id FROM games WHERE season = ? AND week = ?", (season, week)
+            "SELECT game_id FROM games WHERE sport = 'nfl' AND season = ? AND week = ?", (season, week)
         ).fetchall()
 
     game_ids = [r["game_id"] for r in rows]
@@ -150,10 +183,10 @@ def _resolve_power_ranking_week(conn, season: int, week: Optional[int]) -> int:
     games table rather than duplicating that logic client-side)."""
     if week is not None:
         return week
-    row = conn.execute("SELECT MIN(week) AS w FROM games WHERE season = ? AND status != 'final'", (season,)).fetchone()
+    row = conn.execute("SELECT MIN(week) AS w FROM games WHERE sport = 'nfl' AND season = ? AND status != 'final'", (season,)).fetchone()
     if row and row["w"] is not None:
         return row["w"]
-    row = conn.execute("SELECT MAX(week) AS w FROM games WHERE season = ?", (season,)).fetchone()
+    row = conn.execute("SELECT MAX(week) AS w FROM games WHERE sport = 'nfl' AND season = ?", (season,)).fetchone()
     return row["w"] if row and row["w"] is not None else 1
 
 
@@ -262,7 +295,7 @@ def get_game_detail(game_id: str):
 
 
 @router.get("/meta/seasons")
-def list_seasons():
+def list_seasons(sport: str = "nfl"):
     with db_session() as conn:
-        rows = conn.execute("SELECT DISTINCT season FROM games ORDER BY season DESC").fetchall()
+        rows = conn.execute("SELECT DISTINCT season FROM games WHERE sport = ? ORDER BY season DESC", (normalize_sport(sport),)).fetchall()
     return [r["season"] for r in rows]

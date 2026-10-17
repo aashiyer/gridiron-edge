@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../lib/api";
+import { api, getSport } from "../lib/api";
+import { useSport } from "../lib/SportContext";
 import type { Game, PickCell, PickMarket, Record as PickRecord, StandingsEntry, StandingsResponse, WeekAward, WeekBoard } from "../lib/types";
 import { fmtSpread } from "../components/GamePickCard";
 import { TeamLogo } from "../components/TeamBadge";
@@ -29,7 +30,7 @@ const RANK_STYLES: { [rank: number]: string } = {
 };
 
 function weekLabel(week: number) {
-  return PLAYOFF_LABELS[week] ?? `Week ${week}`;
+  return (getSport() === "nfl" ? PLAYOFF_LABELS[week] : undefined) ?? `Week ${week}`;
 }
 
 function fmtRecord(r: PickRecord) {
@@ -48,6 +49,8 @@ function cellLabel(market: PickMarket, pick: PickCell) {
 }
 
 export function LeaderboardPage() {
+  const { sport } = useSport();
+  const [seasonList, setSeasonList] = useState<number[]>([]);
   const [currentSeason, setCurrentSeason] = useState<number | null>(null);
   const [season, setSeason] = useState<number | null>(null);
   const [standings, setStandings] = useState<StandingsResponse | null>(null);
@@ -58,12 +61,18 @@ export function LeaderboardPage() {
   const [openGame, setOpenGame] = useState<string | null>(null);
 
   useEffect(() => {
+    setStandings(null);
+    setBoard(null);
+    setWeek(null);
+    setSeason(null);
     api.seasons().then((list) => {
-      const latest = list.length ? Math.max(...list) : new Date().getFullYear();
+      const sorted = [...list].sort((a, b) => b - a);
+      const latest = sorted[0] ?? new Date().getFullYear();
+      setSeasonList(sorted.slice(0, 3));
       setCurrentSeason(latest);
       setSeason(latest);
     });
-  }, []);
+  }, [sport]);
 
   useEffect(() => {
     if (season === null) return;
@@ -106,15 +115,16 @@ export function LeaderboardPage() {
         <div>
           <h1 className="text-2xl font-bold text-[var(--text)]">Leaderboard</h1>
           <p className="text-sm text-[var(--text-muted)] mt-1">
-            Season standings, then every pick, game by game. Ranked by ATS win%. ATS and totals are graded against the closing line, so pending picks always show the current line. A skipped SU or ATS pick counts as a loss once the game is final.
+            Season standings, then every pick, game by game. Ranked by ATS win%. ATS and totals are graded against the closing line, so pending picks always show the current line.{" "}
+            {sport === "nba" ? "Only the games you pick count." : "A skipped SU or ATS pick counts as a loss once the game is final."}
           </p>
         </div>
         {currentSeason !== null && season !== null && (
           <div className="flex flex-wrap items-center gap-2">
             <select value={season} onChange={(e) => setSeason(Number(e.target.value))} className="input">
-              {[currentSeason, currentSeason - 1, currentSeason - 2].map((s) => (
+              {(seasonList.length ? seasonList : [currentSeason]).map((s) => (
                 <option key={s} value={s}>
-                  {s} Season
+                  {sport === "nba" ? `${s}-${String(s + 1).slice(2)}` : s} Season
                 </option>
               ))}
             </select>
@@ -275,7 +285,7 @@ function StandingsTable({ entries }: { entries: StandingsEntry[] }) {
                 </td>
                 <td style={tint} className="px-3 py-3 text-right tabular-nums text-[var(--text-muted)]">{fmtRecord(e.total)}</td>
                 <td style={tint} className="px-3 py-3 text-right tabular-nums text-[var(--text-muted)]">
-                  {e.games_picked}/{e.games_available}
+                  {e.games_available === null ? e.games_picked : `${e.games_picked}/${e.games_available}`}
                 </td>
                 <td style={tint} className="px-3 py-3 text-right">
                   <AwardCell award={e.best_week} good />

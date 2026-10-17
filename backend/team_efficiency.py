@@ -79,7 +79,7 @@ def _game_net_epa(conn, season: int, through_week: int):
 
 def opponent_adjusted_ratings(conn, season: int, through_week: int, iterations: int = 8) -> dict:
     matchups = conn.execute(
-        "SELECT week, home_team, away_team FROM games WHERE season = ? AND week <= ? AND status = 'final'",
+        "SELECT week, home_team, away_team FROM games WHERE sport = 'nfl' AND season = ? AND week <= ? AND status = 'final'",
         (season, through_week),
     ).fetchall()
     if not matchups:

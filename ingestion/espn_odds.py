@@ -62,7 +62,7 @@ def _rest_days(conn, team: str, before_kickoff: str, exclude_game_id: str):
     row = conn.execute(
         """
         SELECT kickoff_time FROM games
-        WHERE (home_team = ? OR away_team = ?) AND game_id != ? AND kickoff_time < ?
+        WHERE sport = 'nfl' AND (home_team = ? OR away_team = ?) AND game_id != ? AND kickoff_time < ?
         ORDER BY kickoff_time DESC LIMIT 1
         """,
         (team, team, exclude_game_id, before_kickoff),

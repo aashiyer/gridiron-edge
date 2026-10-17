@@ -3,6 +3,8 @@ import { useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext";
 import { useTheme } from "../lib/ThemeContext";
+import { useSport } from "../lib/SportContext";
+import { NFL_ONLY_PATHS, SportToggle } from "./SportToggle";
 import { HomeIcon, TargetIcon, ChartIcon, ScaleIcon, CalendarIcon, TrophyIcon, PersonIcon, SunIcon, MoonIcon, LogoMark, RankIcon, MoreIcon, ShieldIcon } from "./icons";
 
 const baseTabs = [
@@ -21,11 +23,13 @@ export function Sidebar() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+  const { sport } = useSport();
   const [moreOpen, setMoreOpen] = useState(false);
 
   if (!user) return null;
 
-  const tabs = user.is_admin ? [...baseTabs, ADMIN_TAB] : baseTabs;
+  const visibleTabs = sport === "nba" ? baseTabs.filter((t) => !NFL_ONLY_PATHS.includes(t.to)) : baseTabs;
+  const tabs = user.is_admin ? [...visibleTabs, ADMIN_TAB] : visibleTabs;
   const primaryMobileTabs = tabs.filter((t) => ["/", "/picker", "/leaderboard", "/record"].includes(t.to));
   const moreTabs = tabs.filter((t) => !primaryMobileTabs.includes(t));
 
@@ -52,6 +56,10 @@ export function Sidebar() {
           >
             {theme === "dark" ? <SunIcon className="w-[18px] h-[18px]" /> : <MoonIcon className="w-[18px] h-[18px]" />}
           </button>
+        </div>
+
+        <div className="px-4 pb-4">
+          <SportToggle />
         </div>
 
         <nav className="flex-1 flex flex-col gap-0.5 px-3">
@@ -106,6 +114,7 @@ export function Sidebar() {
               PICK<span className="text-[var(--accent)]">SIX</span>
             </span>
           </Link>
+          <SportToggle compact />
           <div className="flex items-center gap-3">
             <button onClick={toggleTheme} className="text-[var(--text-muted)]">
               {theme === "dark" ? <SunIcon className="w-5 h-5" /> : <MoonIcon className="w-5 h-5" />}

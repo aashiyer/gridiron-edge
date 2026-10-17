@@ -14,7 +14,39 @@ function download(slide: ExportSlide) {
   a.remove();
 }
 
-export function ExportModal({ season, week, onClose }: { season: number; week: number; onClose: () => void }) {
+function dayText(day: string): string {
+  return new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+}
+
+async function saveToPhone(slides: ExportSlide[]) {
+  try {
+    const files = await Promise.all(
+      slides.map(async (s) => new File([await (await fetch(s.image)).blob()], s.filename, { type: "image/png" }))
+    );
+    if (navigator.canShare && navigator.canShare({ files })) {
+      await navigator.share({ files });
+      return;
+    }
+  } catch (e) {
+    if ((e as DOMException).name === "AbortError") return;
+  }
+  slides.forEach((s, i) => setTimeout(() => download(s), i * 450));
+}
+
+export function ExportModal({
+  season,
+  week,
+  sport,
+  day,
+  onClose,
+}: {
+  season: number;
+  week: number;
+  sport: "nfl" | "nba";
+  day: string | null;
+  onClose: () => void;
+}) {
+  const isNba = sport === "nba";
   const [board, setBoard] = useState<WeekBoard | null>(null);
   const [selected, setSelected] = useState<number[]>([]);
   const [slides, setSlides] = useState<ExportSlide[] | null>(null);
@@ -58,9 +90,9 @@ export function ExportModal({ season, week, onClose }: { season: number; week: n
     setError(null);
     setSlides(null);
     try {
-      const r = await api.exportWeek(season, week, selected);
+      const r = await api.exportWeek(season, week, selected, day);
       setSlides(r.slides);
-      if (!r.slides.length) setError("There are no games to export for this week yet.");
+      if (!r.slides.length) setError(isNba ? "Nobody selected has picked any games in this window yet." : "There are no games to export for this week yet.");
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Couldn't build the export. Try again in a moment.");
     } finally {
@@ -78,9 +110,13 @@ export function ExportModal({ season, week, onClose }: { season: number; week: n
       >
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-bold text-[var(--text)]">Export Week {week} picks</h2>
+            <h2 className="text-lg font-bold text-[var(--text)]">
+              {isNba ? `Export NBA picks · ${day ? dayText(day) : `Week ${week}`}` : `Export Week ${week} picks`}
+            </h2>
             <p className="text-sm text-[var(--text-muted)] mt-0.5">
-              Makes a swipeable set of images (1080×1350, Instagram's portrait size) with everyone's picks and last week's records.
+              {isNba
+                ? "Makes a swipeable set of images (1080×1350, Instagram's portrait size) with only the games someone picked, plus everyone's season record."
+                : "Makes a swipeable set of images (1080×1350, Instagram's portrait size) with everyone's picks and last week's records."}
             </p>
           </div>
           <button onClick={onClose} aria-label="Close" className="text-[var(--text-faint)] hover:text-[var(--text)] text-xl leading-none px-1">
@@ -124,6 +160,14 @@ export function ExportModal({ season, week, onClose }: { season: number; week: n
           {busy && <span className="text-xs text-[var(--text-muted)]">This takes about 10 seconds.</span>}
           {slides && slides.length > 0 && (
             <button
+              onClick={() => saveToPhone(slides)}
+              className="rounded-lg bg-emerald-500 hover:bg-emerald-500/90 text-white font-semibold py-2.5 px-4 text-sm shadow-sm transition-colors"
+            >
+              Save to phone
+            </button>
+          )}
+          {slides && slides.length > 0 && (
+            <button
               onClick={() => slides.forEach((s, i) => setTimeout(() => download(s), i * 450))}
               className="rounded-lg border border-[var(--border)] bg-[var(--surface)] hover:border-[var(--accent)]/50 text-[var(--text)] font-semibold py-2.5 px-4 text-sm transition-colors"
             >
@@ -146,7 +190,7 @@ export function ExportModal({ season, week, onClose }: { season: number; week: n
                 </div>
               ))}
             </div>
-            <p className="text-xs text-[var(--text-faint)] mt-2">Post them in order as a carousel. On a phone, press and hold a slide to save it to Photos.</p>
+            <p className="text-xs text-[var(--text-faint)] mt-2">Post them in order as a carousel. On a phone, tap Save to phone and choose Save Image, or press and hold a slide. Nothing is stored; the images are made fresh each time.</p>
           </div>
         )}
       </div>

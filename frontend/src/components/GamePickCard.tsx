@@ -24,6 +24,7 @@ export function GamePickCard({
   onPickMade,
   view = "spread",
   kalshi = null,
+  detailLink = true,
 }: {
   game: Game;
   existingPicks: Pick[];
@@ -32,6 +33,7 @@ export function GamePickCard({
   onPickMade: () => void;
   view?: PickerView;
   kalshi?: KalshiGame | null;
+  detailLink?: boolean;
 }) {
   const { selectionFor, togglePick, locked, error } = usePickToggle(game, existingPicks, onPickMade);
 
@@ -62,14 +64,21 @@ export function GamePickCard({
         </span>
       </div>
 
-      <Link
-        to={`/games/${game.game_id}`}
-        className="grid grid-cols-2 gap-2 -m-1 p-1 rounded-lg hover:bg-[var(--surface-hover)] transition-colors"
-        title="View full game details"
-      >
-        <TeamColumn team={game.away} score={game.final_away_score} record={rec?.away_record} />
-        <TeamColumn team={game.home} score={game.final_home_score} record={rec?.home_record} />
-      </Link>
+      {detailLink ? (
+        <Link
+          to={`/games/${game.game_id}`}
+          className="grid grid-cols-2 gap-2 -m-1 p-1 rounded-lg hover:bg-[var(--surface-hover)] transition-colors"
+          title="View full game details"
+        >
+          <TeamColumn team={game.away} score={game.final_away_score} record={rec?.away_record} />
+          <TeamColumn team={game.home} score={game.final_home_score} record={rec?.home_record} />
+        </Link>
+      ) : (
+        <div className="grid grid-cols-2 gap-2">
+          <TeamColumn team={game.away} score={game.final_away_score} record={rec?.away_record} />
+          <TeamColumn team={game.home} score={game.final_home_score} record={rec?.home_record} />
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-2">
         <PickButton
@@ -159,6 +168,7 @@ export function GamePickCard({
       {error && <div className="text-xs text-[var(--destructive)]">{error}</div>}
 
 
+      {(loadingRec || rec) && (
       <div className="rounded-xl bg-gradient-to-br from-[var(--accent)]/[0.08] to-[var(--accent)]/[0.05] border border-[var(--accent)]/15 p-2 sm:p-3">
         {loadingRec && <div className="text-xs text-[var(--text-muted)] animate-pulse">Analyzing historical trends…</div>}
         {rec && !loadingRec && (
@@ -199,6 +209,7 @@ export function GamePickCard({
           </>
         )}
       </div>
+      )}
     </div>
   );
 }

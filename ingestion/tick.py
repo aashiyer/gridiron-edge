@@ -53,7 +53,7 @@ def snapshot_games(limit: int = 25):
     with db_session() as conn:
         rows = conn.execute(
             """SELECT g.game_id FROM games g
-               WHERE g.season = ? AND (g.status != 'scheduled' OR g.kickoff_time <= ?)
+               WHERE g.sport = 'nfl' AND g.season = ? AND (g.status != 'scheduled' OR g.kickoff_time <= ?)
                  AND NOT EXISTS (SELECT 1 FROM recommendation_snapshots s WHERE s.game_id = g.game_id)
                ORDER BY g.kickoff_time DESC LIMIT ?""",
             (season, cutoff, limit),
@@ -164,7 +164,7 @@ def run_recs(days=7):
     with db_session() as conn:
         rows = conn.execute(
             """SELECT game_id FROM games
-               WHERE season = ? AND status = 'scheduled' AND (kickoff_time IS NULL OR kickoff_time <= ?)
+               WHERE sport = 'nfl' AND season = ? AND status = 'scheduled' AND (kickoff_time IS NULL OR kickoff_time <= ?)
                ORDER BY kickoff_time ASC""",
             (season, horizon),
         ).fetchall()
@@ -184,6 +184,18 @@ def run_recs(days=7):
     print(f"Precomputed {ok} recommendation(s), {failed} failed.")
 
 
+def run_nba():
+    from ingestion.nba import run_nba as pull
+
+    pull()
+
+
+def run_nba_schedule():
+    from ingestion.nba import run_nba as pull
+
+    pull(days_back=0, days_ahead=60)
+
+
 JOBS = {
     "odds": run_odds,
     "season": run_season,
@@ -193,6 +205,8 @@ JOBS = {
     "qb_starters": run_qb_starters,
     "pbp_stats": run_pbp_stats,
     "ngs_stats": run_ngs_stats,
+    "nba": run_nba,
+    "nba_schedule": run_nba_schedule,
     "recs": run_recs,
     "recs_all": lambda: run_recs(days=None),
     "snapshots": lambda: snapshot_games(limit=500),

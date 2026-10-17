@@ -6,6 +6,7 @@ import type {
   KalshiGame,
   ExportSlide,
   RecordsResponse,
+  WeeksResponse,
   GameDetail,
   TeamMeta,
   VsModelSummary,
@@ -18,6 +19,29 @@ import type {
 } from "./types";
 
 const BASE = import.meta.env.VITE_API_BASE || "/api";
+const SPORT_KEY = "pickSixSport";
+
+export type Sport = "nfl" | "nba";
+
+let activeSport: Sport = (() => {
+  try {
+    return localStorage.getItem(SPORT_KEY) === "nba" ? "nba" : "nfl";
+  } catch {
+    return "nfl";
+  }
+})();
+
+export function getSport(): Sport {
+  return activeSport;
+}
+
+export function setActiveSport(sport: Sport) {
+  activeSport = sport;
+  try {
+    localStorage.setItem(SPORT_KEY, sport);
+  } catch {
+  }
+}
 const TOKEN_KEY = "gridiron_token";
 
 export function getToken(): string | null {
@@ -101,6 +125,7 @@ export const api = {
     if (params.season) qs.set("season", String(params.season));
     if (params.week) qs.set("week", String(params.week));
     if (params.team) qs.set("team", params.team);
+    qs.set("sport", activeSport);
     return req<Game[]>(`/games?${qs.toString()}`);
   },
   game: (gameId: string) => req<Game>(`/games/${gameId}`),
@@ -110,7 +135,8 @@ export const api = {
     req<Record<string, Recommendation>>(`/games/recommendations?season=${params.season}&week=${params.week}`),
   kalshi: (params: { season: number; week: number }) =>
     req<Record<string, KalshiGame>>(`/kalshi?season=${params.season}&week=${params.week}`),
-  seasons: () => req<number[]>(`/games/meta/seasons`),
+  seasons: () => req<number[]>(`/games/meta/seasons?sport=${activeSport}`),
+  weeks: (season: number) => req<WeeksResponse>(`/games/weeks?season=${season}&sport=${activeSport}`),
   powerRankings: (params: { season: number; week?: number }) => {
     const qs = new URLSearchParams({ season: String(params.season) });
     if (params.week) qs.set("week", String(params.week));
@@ -123,6 +149,7 @@ export const api = {
     if (params.pick_type) qs.set("pick_type", params.pick_type);
     if (params.season) qs.set("season", String(params.season));
     if (params.week) qs.set("week", String(params.week));
+    qs.set("sport", activeSport);
     return req<Pick[]>(`/picks?${qs.toString()}`);
   },
   createPick: (pick: {
@@ -142,20 +169,23 @@ export const api = {
   deletePick: (pickId: number) => req<{ deleted: number }>(`/picks/${pickId}`, { method: "DELETE" }),
 
   dashboard: (params: { season?: number } = {}) =>
-    req<DashboardSummary>(`/dashboard${params.season ? `?season=${params.season}` : ""}`),
+    req<DashboardSummary>(`/dashboard?sport=${activeSport}${params.season ? `&season=${params.season}` : ""}`),
   vsModel: () => req<VsModelSummary>(`/dashboard/vs-model`),
-  leaderboardStandings: (season: number) => req<StandingsResponse>(`/leaderboard/standings?season=${season}`),
-  leaderboardWeek: (season: number, week: number) => req<WeekBoard>(`/leaderboard/week?season=${season}&week=${week}`),
+  leaderboardStandings: (season: number) => req<StandingsResponse>(`/leaderboard/standings?season=${season}&sport=${activeSport}`),
+  leaderboardWeek: (season: number, week: number) => req<WeekBoard>(`/leaderboard/week?season=${season}&week=${week}&sport=${activeSport}`),
   teams: () => req<TeamMeta[]>(`/teams`),
 
   uploadAvatar: (image: string) => req<{ avatar_version: number }>(`/auth/avatar`, { method: "POST", body: JSON.stringify({ image }) }),
   deleteAvatar: () => req<{ avatar_version: number }>(`/auth/avatar`, { method: "DELETE" }),
-  exportWeek: (season: number, week: number, userIds: number[]) =>
-    req<{ slides: ExportSlide[] }>(`/export/week?season=${season}&week=${week}&user_ids=${userIds.join(",")}`),
+  exportWeek: (season: number, week: number, userIds: number[], day?: string | null) =>
+    req<{ slides: ExportSlide[] }>(
+      `/export/week?season=${season}&week=${week}&user_ids=${userIds.join(",")}&sport=${activeSport}${day ? `&day=${day}` : ""}`
+    ),
   records: (params: { user_id?: number; season?: number } = {}) => {
     const qs = new URLSearchParams();
     if (params.user_id) qs.set("user_id", String(params.user_id));
     if (params.season) qs.set("season", String(params.season));
+    qs.set("sport", activeSport);
     return req<RecordsResponse>(`/records?${qs.toString()}`);
   },
   adminUsers: () => req<AdminUser[]>(`/admin/users`),

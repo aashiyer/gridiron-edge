@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from backend.auth import get_current_user
 from backend.database import db_session
+from backend.sports import normalize_sport, team_meta_for
 from backend.ttl_cache import ttl_memo
 
 router = APIRouter(prefix="/api/records", tags=["records"])
@@ -31,14 +32,14 @@ def _units(rows: list) -> float:
 
 
 @ttl_memo("records", 300)
-def _load_picks(conn, user_id: int, season) -> list:
+def _load_picks(conn, user_id: int, season, sport: str = "nfl") -> list:
     query = """
         SELECT p.pick_type, p.selection, p.result, COALESCE(p.graded_line, p.line_at_pick_time) AS line,
                g.season, g.week, g.kickoff_time, g.home_team, g.away_team, g.div_game, g.home_spread_close
         FROM picks p JOIN games g ON g.game_id = p.game_id
-        WHERE p.user_id = ? AND p.pick_type IN ('straight_up', 'ats')
+        WHERE p.user_id = ? AND g.sport = ? AND p.pick_type IN ('straight_up', 'ats')
     """
-    params: list = [user_id]
+    params: list = [user_id, sport]
     if season is not None:
         query += " AND g.season = ?"
         params.append(season)
@@ -47,16 +48,17 @@ def _load_picks(conn, user_id: int, season) -> list:
 
 
 @ttl_memo("records_group", 300)
-def _group_counts(conn) -> dict:
+def _group_counts(conn, sport: str = "nfl") -> dict:
     rows = conn.execute(
         """
         SELECT p.pick_type, p.user_id, g.season,
                SUM(CASE WHEN p.result = 'win' THEN 1 ELSE 0 END) AS wins,
                SUM(CASE WHEN p.result = 'loss' THEN 1 ELSE 0 END) AS losses
         FROM picks p JOIN games g ON g.game_id = p.game_id
-        WHERE p.pick_type IN ('ats', 'straight_up') AND p.result IN ('win', 'loss')
+        WHERE g.sport = ? AND p.pick_type IN ('ats', 'straight_up') AND p.result IN ('win', 'loss')
         GROUP BY p.pick_type, p.user_id, g.season
-        """
+        """,
+        (sport,),
     ).fetchall()
     return {(r["pick_type"], r["user_id"], r["season"]): (r["wins"], r["losses"]) for r in rows}
 
@@ -75,8 +77,8 @@ def _rank(group: dict, pick_type: str, user_id: int, season) -> Optional[dict]:
     return {"rank": ordered.index(eligible[user_id]) + 1, "of": len(eligible)}
 
 
-def _week_label(season: int, week: int) -> str:
-    names = {19: "WC", 20: "DIV", 21: "CONF", 22: "SB"}
+def _week_label(season: int, week: int, sport: str = "nfl") -> str:
+    names = {19: "WC", 20: "DIV", 21: "CONF", 22: "SB"} if sport == "nfl" else {}
     return f"{season} {names.get(week, f'W{week}')}"
 
 
@@ -107,7 +109,7 @@ def _slot(kickoff: Optional[str]) -> Optional[str]:
     return "Primetime" if d.hour >= 19 else "Day games"
 
 
-def _splits(picks: list) -> list:
+def _splits(picks: list, sport: str = "nfl") -> list:
     def bucket(p):
         out = []
         line = _team_line(p)
@@ -119,9 +121,14 @@ def _splits(picks: list) -> list:
             out.append(("Division games", "Division games" if p["div_game"] else "Non-division games"))
         slot = _slot(p["kickoff_time"])
         if slot:
+            if sport == "nba":
+                slot = "Evening tip (7pm ET+)" if slot == "Primetime" else "Early tip (before 7pm ET)"
             out.append(("Time slot", slot))
         w = p["week"]
-        out.append(("Part of the season", "Early (wk 1-6)" if w <= 6 else "Middle (wk 7-12)" if w <= 12 else "Late (wk 13-18)" if w <= 18 else "Playoffs"))
+        if sport == "nba":
+            out.append(("Part of the season", "Early (wk 1-8)" if w <= 8 else "Middle (wk 9-18)" if w <= 18 else "Late (wk 19+)"))
+        else:
+            out.append(("Part of the season", "Early (wk 1-6)" if w <= 6 else "Middle (wk 7-12)" if w <= 12 else "Late (wk 13-18)" if w <= 18 else "Playoffs"))
         close = p["home_spread_close"]
         if close is not None:
             size = abs(close)
@@ -132,8 +139,8 @@ def _splits(picks: list) -> list:
         "Favorite or underdog": ["Favorites", "Underdogs"],
         "Home or road": ["Picked the home team", "Picked the road team"],
         "Division games": ["Division games", "Non-division games"],
-        "Time slot": ["Day games", "Primetime"],
-        "Part of the season": ["Early (wk 1-6)", "Middle (wk 7-12)", "Late (wk 13-18)", "Playoffs"],
+        "Time slot": ["Early tip (before 7pm ET)", "Evening tip (7pm ET+)"] if sport == "nba" else ["Day games", "Primetime"],
+        "Part of the season": ["Early (wk 1-8)", "Middle (wk 9-18)", "Late (wk 19+)"] if sport == "nba" else ["Early (wk 1-6)", "Middle (wk 7-12)", "Late (wk 13-18)", "Playoffs"],
         "Spread size": ["Up to 3", "3.5 to 6.5", "7 to 9.5", "10 or more"],
     }
     grouped: dict = {title: {label: [] for label in labels} for title, labels in order.items()}
@@ -146,7 +153,7 @@ def _splits(picks: list) -> list:
     ]
 
 
-def _build(picks: list, user_id: int, season, group: dict) -> dict:
+def _build(picks: list, user_id: int, season, group: dict, sport: str = "nfl") -> dict:
     decided = [p for p in picks if p["result"] in DECIDED]
     ats = [p for p in decided if p["pick_type"] == "ats"]
     su = [p for p in decided if p["pick_type"] == "straight_up"]
@@ -168,7 +175,7 @@ def _build(picks: list, user_id: int, season, group: dict) -> dict:
             rec = _rec(rows)
             n = rec["wins"] + rec["losses"]
             if n >= MIN_WEEK_DECIDED:
-                marks.append({"season": key[0], "week": key[1], "label": _week_label(*key), "win_pct": round(rec["wins"] / n * 100, 1), "wins": rec["wins"], "losses": rec["losses"], "pushes": rec["pushes"]})
+                marks.append({"season": key[0], "week": key[1], "label": _week_label(key[0], key[1], sport), "win_pct": round(rec["wins"] / n * 100, 1), "wins": rec["wins"], "losses": rec["losses"], "pushes": rec["pushes"]})
         best = max(marks, key=lambda m: (m["win_pct"], m["wins"]), default=None)
         worst = min(marks, key=lambda m: (m["win_pct"], -m["losses"]), default=None)
         return best, worst
@@ -193,7 +200,7 @@ def _build(picks: list, user_id: int, season, group: dict) -> dict:
             {
                 "season": key[0],
                 "week": key[1],
-                "label": _week_label(*key),
+                "label": _week_label(key[0], key[1], sport),
                 "cumulative_units": round(cum_units, 2),
                 "rolling_ats_pct": rolling(ats_window),
                 "su_wins_over_500": cum_su_diff,
@@ -239,37 +246,45 @@ def _build(picks: list, user_id: int, season, group: dict) -> dict:
         },
         "trend": trend,
         "season_rows": season_rows,
-        "splits": {"ats": _splits(ats), "straight_up": _splits(su)},
+        "splits": {"ats": _splits(ats, sport), "straight_up": _splits(su, sport)},
         "teams": {"ats": team_records(ats), "straight_up": team_records(su)},
     }
 
 
 @router.get("")
-def records(user_id: Optional[int] = None, season: Optional[int] = None, current_user: dict = Depends(get_current_user)):
+def records(user_id: Optional[int] = None, season: Optional[int] = None, current_user: dict = Depends(get_current_user), sport: str = "nfl"):
+    sport = normalize_sport(sport)
     target = user_id if user_id is not None else current_user["user_id"]
     with db_session() as conn:
         user = conn.execute("SELECT user_id, display_name, avatar_version FROM users WHERE user_id = ?", (target,)).fetchone()
         if not user:
             raise HTTPException(status_code=404, detail="user not found")
-        picks = _load_picks(conn, target, season)
-        group = _group_counts(conn)
+        picks = _load_picks(conn, target, season, sport)
+        group = _group_counts(conn, sport)
         seasons = [
             r["season"]
             for r in conn.execute(
-                "SELECT DISTINCT g.season FROM picks p JOIN games g ON g.game_id = p.game_id WHERE p.user_id = ? ORDER BY g.season DESC", (target,)
+                "SELECT DISTINCT g.season FROM picks p JOIN games g ON g.game_id = p.game_id WHERE p.user_id = ? AND g.sport = ? ORDER BY g.season DESC",
+                (target, sport),
             ).fetchall()
         ]
         people = [
             dict(r)
             for r in conn.execute(
-                "SELECT u.user_id, u.display_name, u.avatar_version FROM users u WHERE EXISTS (SELECT 1 FROM picks p WHERE p.user_id = u.user_id) ORDER BY u.display_name"
+                """SELECT u.user_id, u.display_name, u.avatar_version FROM users u
+                   WHERE EXISTS (SELECT 1 FROM picks p JOIN games g ON g.game_id = p.game_id WHERE p.user_id = u.user_id AND g.sport = ?)
+                   ORDER BY u.display_name""",
+                (sport,),
             ).fetchall()
         ]
+    built = _build(picks, target, season, group, sport)
+    teams_picked = set(built["teams"]["ats"]) | set(built["teams"]["straight_up"])
     return {
         "user": dict(user),
         "is_you": target == current_user["user_id"],
         "season": season,
         "available_seasons": seasons,
         "people": people,
-        **_build(picks, target, season, group),
+        "team_meta": {abbr: team_meta_for(sport, abbr) for abbr in teams_picked},
+        **built,
     }

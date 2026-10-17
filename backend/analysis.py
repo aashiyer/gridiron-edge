@@ -73,7 +73,7 @@ def _final_games(conn):
         """
         SELECT game_id, season, week, status, kickoff_time, home_team, away_team, final_home_score, final_away_score,
                home_spread_close, total_close, roof, temp, wind, precip_pct
-        FROM games WHERE status = 'final' ORDER BY kickoff_time DESC
+        FROM games WHERE status = 'final' AND sport = 'nfl' ORDER BY kickoff_time DESC
         """
     ).fetchall()
 
@@ -203,7 +203,7 @@ def _head_to_head_totals(conn, home: str, away: str, before_kickoff: str, limit:
     rows = conn.execute(
         """
         SELECT * FROM games
-        WHERE status = 'final' AND total_close IS NOT NULL
+        WHERE sport = 'nfl' AND status = 'final' AND total_close IS NOT NULL
           AND ((home_team = ? AND away_team = ?) OR (home_team = ? AND away_team = ?))
           AND (kickoff_time IS NULL OR kickoff_time < ?)
         ORDER BY kickoff_time DESC LIMIT ?
@@ -350,7 +350,7 @@ def _venue_form(conn, away_team: str, home_team: str, before_kickoff: str, limit
     rows = conn.execute(
         """
         SELECT * FROM games
-        WHERE home_team = ? AND away_team = ?
+        WHERE sport = 'nfl' AND home_team = ? AND away_team = ?
           AND status = 'final' AND home_spread_close IS NOT NULL
           AND (kickoff_time IS NULL OR kickoff_time < ?)
         ORDER BY kickoff_time DESC LIMIT ?
@@ -379,7 +379,7 @@ def _head_to_head(conn, home: str, away: str, before_kickoff: str, limit: int = 
     rows = conn.execute(
         """
         SELECT * FROM games
-        WHERE status = 'final' AND home_spread_close IS NOT NULL
+        WHERE sport = 'nfl' AND status = 'final' AND home_spread_close IS NOT NULL
           AND ((home_team = ? AND away_team = ?) OR (home_team = ? AND away_team = ?))
           AND (kickoff_time IS NULL OR kickoff_time < ?)
         ORDER BY kickoff_time DESC LIMIT ?

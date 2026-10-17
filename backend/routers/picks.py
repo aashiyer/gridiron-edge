@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 from backend.auth import get_current_user
 from backend.database import db_session
-from backend.teams import team_meta
+from backend.sports import normalize_sport, team_meta_for
 from backend.ttl_cache import clear_pick_caches
 from backend.analysis import build_recommendation, cached_recommendation
 
@@ -26,11 +26,12 @@ def _kickoff_passed(kickoff_time: Optional[str]) -> bool:
 
 
 def _assert_game_open(conn, game_id: str):
-    game = conn.execute("SELECT status, kickoff_time FROM games WHERE game_id = ?", (game_id,)).fetchone()
+    game = conn.execute("SELECT status, kickoff_time, sport FROM games WHERE game_id = ?", (game_id,)).fetchone()
     if not game:
         raise HTTPException(status_code=404, detail="game not found")
     if game["status"] != "scheduled" or _kickoff_passed(game["kickoff_time"]):
         raise HTTPException(status_code=409, detail="picks are locked once a game has kicked off")
+    return game
 
 
 class PickCreate(BaseModel):
@@ -49,13 +50,14 @@ class PickUpdate(BaseModel):
     notes: Optional[str] = None
 
 
-def _serialize_pick(row) -> dict:
+def _serialize_pick(row, sport: str = "nfl") -> dict:
     d = dict(row)
+    sport = d.get("sport") or sport
     if d.get("selection") in ("over", "under"):
         d["selection_meta"] = None
     else:
         try:
-            d["selection_meta"] = team_meta(d["selection"])
+            d["selection_meta"] = team_meta_for(sport, d["selection"])
         except Exception:
             d["selection_meta"] = None
     return d
@@ -67,16 +69,17 @@ def list_picks(
     pick_type: Optional[str] = None,
     season: Optional[int] = None,
     week: Optional[int] = None,
+    sport: str = "nfl",
     current_user: dict = Depends(get_current_user),
 ):
     query = """
         SELECT p.*, g.season, g.week, g.home_team, g.away_team, g.kickoff_time,
-               g.status, g.final_home_score, g.final_away_score
+               g.status, g.final_home_score, g.final_away_score, g.sport
         FROM picks p
         JOIN games g ON g.game_id = p.game_id
-        WHERE p.user_id = ?
+        WHERE p.user_id = ? AND g.sport = ?
     """
-    params = [current_user["user_id"]]
+    params = [current_user["user_id"], normalize_sport(sport)]
     if result:
         query += " AND p.result = ?"
         params.append(result)
@@ -177,9 +180,12 @@ def set_pick(body: PickSet, current_user: dict = Depends(get_current_user)):
 def create_pick(pick: PickCreate, current_user: dict = Depends(get_current_user)):
     now = datetime.now(timezone.utc).isoformat()
     with db_session() as conn:
-        model_lean, model_confidence, model_line = _model_snapshot(pick.game_id, pick.pick_type, conn=conn)
+        game = _assert_game_open(conn, pick.game_id)
+        if game["sport"] == "nfl":
+            model_lean, model_confidence, model_line = _model_snapshot(pick.game_id, pick.pick_type, conn=conn)
+        else:
+            model_lean = model_confidence = model_line = None
         initial_model_result = "pending" if model_lean else "n_a"
-        _assert_game_open(conn, pick.game_id)
         conn.execute(
             """INSERT INTO picks (user_id, game_id, pick_type, selection, line_at_pick_time, stake, result, notes, created_at,
                                    model_lean, model_confidence, model_line, model_result)
@@ -206,7 +212,7 @@ def create_pick(pick: PickCreate, current_user: dict = Depends(get_current_user)
             (current_user["user_id"], pick.game_id, pick.pick_type),
         ).fetchone()
     clear_pick_caches()
-    return _serialize_pick(row)
+    return _serialize_pick(row, game["sport"])
 
 
 def _assert_owns_pick(conn, pick_id: int, user_id: int):

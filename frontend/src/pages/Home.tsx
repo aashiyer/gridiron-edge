@@ -266,10 +266,60 @@ function HomeNba() {
     return next ? { day: next, games: open.filter((g) => dayOf(g) === next) } : null;
   }, [games]);
 
+  const favorite = user?.favorite_nba_team ?? null;
+  const favoriteGame = useMemo(() => {
+    if (!favorite) return null;
+    const mine = games.filter((g) => g.status === "scheduled" && g.kickoff_time && (g.home_team === favorite || g.away_team === favorite));
+    if (!mine.length) return null;
+    return mine.reduce((a, b) => (new Date(a.kickoff_time!) < new Date(b.kickoff_time!) ? a : b));
+  }, [games, favorite]);
+
   if (loading) return <div className="max-w-6xl mx-auto px-4 py-6 text-[var(--text-muted)] text-sm">Loading…</div>;
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 flex flex-col gap-10">
+      {!favorite && (
+        <Link to="/settings" className="text-xs text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors -mb-4">
+          Pick a favorite NBA team to personalize this page →
+        </Link>
+      )}
+
+      {favorite && favoriteGame && (
+        <Link
+          to="/picker"
+          className="block rounded-2xl border border-[var(--accent)]/20 bg-gradient-to-br from-[var(--accent)]/[0.07] via-transparent to-[var(--accent)]/[0.08] shadow-sm p-6 md:p-8 hover:border-[var(--accent)]/40 transition-colors"
+        >
+          <div className="flex items-center justify-between mb-6">
+            <span className="text-xs font-bold uppercase tracking-widest text-[var(--accent)]">Your Team Next Up</span>
+            {countdown(favoriteGame.kickoff_time) && (
+              <span className="text-xs font-semibold text-[var(--accent)] bg-[var(--accent)]/10 border border-[var(--accent)]/20 rounded-full px-3 py-1">
+                Tips off in {countdown(favoriteGame.kickoff_time)}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center justify-center gap-6 md:gap-14 mb-6">
+            <TeamHero team={favoriteGame.away} score={null} />
+            <span className="font-display text-2xl text-[var(--text-faint)]">@</span>
+            <TeamHero team={favoriteGame.home} score={null} />
+          </div>
+          <div className="text-center text-sm text-[var(--text-muted)] mb-3">{fmtKickoff(favoriteGame.kickoff_time)}</div>
+          {(favoriteGame.current_spread ?? favoriteGame.home_spread_close) !== null && (
+            <div className="flex justify-center">
+              <span className="text-xs text-[var(--text-muted)] bg-[var(--surface-hover)] border border-[var(--border)] rounded-full px-3 py-1.5">
+                Line: {favoriteGame.home_team} {(favoriteGame.current_spread ?? favoriteGame.home_spread_close)! > 0 ? "+" : ""}
+                {favoriteGame.current_spread ?? favoriteGame.home_spread_close}
+              </span>
+            </div>
+          )}
+        </Link>
+      )}
+
+      {favorite && !favoriteGame && (
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm p-6 text-center text-[var(--text-muted)] text-sm">
+          No upcoming game for {favorite} on the current slate yet.
+        </div>
+      )}
+
       <section>
         <h2 className="text-sm font-bold uppercase tracking-widest text-[var(--text-muted)] mb-4">
           Your NBA record{season ? ` · ${season}-${String(season + 1).slice(2)}` : ""}

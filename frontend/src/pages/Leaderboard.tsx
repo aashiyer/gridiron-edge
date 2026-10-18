@@ -9,8 +9,8 @@ import { Avatar } from "../components/Avatar";
 import { usePolling } from "../lib/usePolling";
 
 const MARKETS: { key: PickMarket; label: string }[] = [
-  { key: "ats", label: "ATS" },
   { key: "straight_up", label: "SU" },
+  { key: "ats", label: "ATS" },
   { key: "total", label: "O/U" },
 ];
 
@@ -252,11 +252,11 @@ function StandingsTable({ entries }: { entries: StandingsEntry[] }) {
         <thead>
           <tr className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-faint)] border-b border-[var(--border)] whitespace-nowrap">
             <th className="sticky left-0 z-10 bg-[var(--card)] text-left px-4 py-2.5">Player</th>
-            <th className="text-right px-3 py-2.5">ATS</th>
-            <th className="text-right px-3 py-2.5">SU</th>
-            <th className="text-right px-3 py-2.5">O/U</th>
-            <th className="text-right px-3 py-2.5">Picked</th>
-            <th className="text-right px-3 py-2.5">Best ATS wk</th>
+            <th className="text-center px-4 py-2.5 min-w-[96px] border-l border-[var(--border)]">SU</th>
+            <th className="text-center px-4 py-2.5 min-w-[96px] border-l border-[var(--border)]">ATS</th>
+            <th className="text-center px-4 py-2.5 min-w-[96px] border-l border-[var(--border)]">O/U</th>
+            <th className="text-right px-3 py-2.5 border-l border-[var(--border)]">Picked</th>
+            <th className="text-right px-3 py-2.5 border-l border-[var(--border)]">Best ATS wk</th>
             <th className="text-right px-3 py-2.5">Worst ATS wk</th>
             <th className="text-right px-4 py-2.5">ATS wk wins</th>
           </tr>
@@ -276,14 +276,18 @@ function StandingsTable({ entries }: { entries: StandingsEntry[] }) {
                     {e.is_you && <YouBadge />}
                   </span>
                 </td>
-                <td style={tint} className="px-3 py-3 text-right tabular-nums text-[var(--text)]">
-                  <span className="font-semibold">{fmtPct(e.ats.win_pct)}</span>
-                  <span className="text-[var(--text-muted)] ml-1.5">{fmtRecord(e.ats)}</span>
+                <td style={tint} className="px-4 py-3 text-center tabular-nums border-l border-[var(--border)]">
+                  <span className="block font-semibold text-[var(--text)]">{fmtRecord(e.straight_up)}</span>
+                  <span className="block text-[11px] text-[var(--text-faint)]">{fmtPct(e.straight_up.win_pct)}</span>
                 </td>
-                <td style={tint} className="px-3 py-3 text-right tabular-nums text-[var(--text-muted)]">
-                  {fmtRecord(e.straight_up)} <span className="text-[var(--text-faint)]">({fmtPct(e.straight_up.win_pct)})</span>
+                <td style={tint} className="px-4 py-3 text-center tabular-nums border-l border-[var(--border)]">
+                  <span className="block font-semibold text-[var(--text)]">{fmtRecord(e.ats)}</span>
+                  <span className="block text-[11px] font-semibold text-[var(--accent)]">{fmtPct(e.ats.win_pct)}</span>
                 </td>
-                <td style={tint} className="px-3 py-3 text-right tabular-nums text-[var(--text-muted)]">{fmtRecord(e.total)}</td>
+                <td style={tint} className="px-4 py-3 text-center tabular-nums border-l border-[var(--border)]">
+                  <span className="block font-semibold text-[var(--text)]">{fmtRecord(e.total)}</span>
+                  <span className="block text-[11px] text-[var(--text-faint)]">{fmtPct(e.total.win_pct)}</span>
+                </td>
                 <td style={tint} className="px-3 py-3 text-right tabular-nums text-[var(--text-muted)]">
                   {e.games_available === null ? e.games_picked : `${e.games_picked}/${e.games_available}`}
                 </td>
@@ -322,9 +326,9 @@ function WeekStandingsTable({ board }: { board: WeekBoard }) {
         <thead>
           <tr className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-faint)] border-b border-[var(--border)] whitespace-nowrap">
             <th className="sticky left-0 z-10 bg-[var(--card)] text-left px-4 py-2.5">Player</th>
-            <th className="text-right px-3 py-2.5">ATS</th>
-            <th className="text-right px-3 py-2.5">SU</th>
-            <th className="text-right px-3 py-2.5">O/U</th>
+            <th className="text-center px-4 py-2.5 min-w-[96px] border-l border-[var(--border)]">SU</th>
+            <th className="text-center px-4 py-2.5 min-w-[96px] border-l border-[var(--border)]">ATS</th>
+            <th className="text-center px-4 py-2.5 min-w-[96px] border-l border-[var(--border)]">O/U</th>
             <th className="text-right px-4 py-2.5">Picked</th>
           </tr>
         </thead>
@@ -345,14 +349,18 @@ function WeekStandingsTable({ board }: { board: WeekBoard }) {
                     {board.complete && leader && <span title="Won the week">👑</span>}
                   </span>
                 </td>
-                <td style={tint} className="px-3 py-3 text-right tabular-nums text-[var(--text)]">
-                  <span className="font-semibold">{fmtPct(rec?.ats.win_pct ?? null)}</span>
-                  <span className="text-[var(--text-muted)] ml-1.5">{rec ? fmtRecord(rec.ats) : "—"}</span>
+                <td style={tint} className="px-4 py-3 text-center tabular-nums border-l border-[var(--border)]">
+                  <span className="block font-semibold text-[var(--text)]">{rec ? fmtRecord(rec.straight_up) : "—"}</span>
+                  <span className="block text-[11px] text-[var(--text-faint)]">{fmtPct(rec?.straight_up.win_pct ?? null)}</span>
                 </td>
-                <td style={tint} className="px-3 py-3 text-right tabular-nums text-[var(--text-muted)]">
-                  {rec ? fmtRecord(rec.straight_up) : "—"} <span className="text-[var(--text-faint)]">({fmtPct(rec?.straight_up.win_pct ?? null)})</span>
+                <td style={tint} className="px-4 py-3 text-center tabular-nums border-l border-[var(--border)]">
+                  <span className="block font-semibold text-[var(--text)]">{rec ? fmtRecord(rec.ats) : "—"}</span>
+                  <span className="block text-[11px] font-semibold text-[var(--accent)]">{fmtPct(rec?.ats.win_pct ?? null)}</span>
                 </td>
-                <td style={tint} className="px-3 py-3 text-right tabular-nums text-[var(--text-muted)]">{rec ? fmtRecord(rec.total) : "—"}</td>
+                <td style={tint} className="px-4 py-3 text-center tabular-nums border-l border-[var(--border)]">
+                  <span className="block font-semibold text-[var(--text)]">{rec ? fmtRecord(rec.total) : "—"}</span>
+                  <span className="block text-[11px] text-[var(--text-faint)]">{fmtPct(rec?.total.win_pct ?? null)}</span>
+                </td>
                 <td style={tint} className="px-4 py-3 text-right tabular-nums text-[var(--text-muted)]">
                   {rec?.games_picked ?? 0}/{board.games.length}
                 </td>

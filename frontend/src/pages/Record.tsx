@@ -167,8 +167,8 @@ export function RecordPage() {
       <div role="tablist" aria-label="Market" className="flex gap-2">
         {(
           [
-            ["ats", "ATS"],
             ["straight_up", "Straight up"],
+            ["ats", "ATS"],
           ] as [Market, string][]
         ).map(([value, text]) => (
           <button

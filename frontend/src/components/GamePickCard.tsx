@@ -82,35 +82,6 @@ export function GamePickCard({
 
       <div className="grid grid-cols-2 gap-2">
         <PickButton
-          active={selectionFor("ats") === game.away_team}
-          result={resultFor("ats")}
-          edge={rec?.lean_ats === game.away_team}
-          disabled={locked || spread === null}
-          hint={`${game.away.name} ${spread !== null ? fmtSpread(-spread) : ""} spread`}
-          color={game.away.color}
-          secondary={game.away.secondary}
-          onClick={() => togglePick("ats", game.away_team, spread !== null ? -spread : null)}
-        >
-          <Cell
-            main={ats ? fmtPct(ats.away) : spread !== null ? fmtSpread(-spread) : "—"}
-          />
-        </PickButton>
-        <PickButton
-          active={selectionFor("ats") === game.home_team}
-          result={resultFor("ats")}
-          edge={rec?.lean_ats === game.home_team}
-          disabled={locked || spread === null}
-          hint={`${game.home.name} ${spread !== null ? fmtSpread(spread) : ""} spread`}
-          color={game.home.color}
-          secondary={game.home.secondary}
-          onClick={() => togglePick("ats", game.home_team, spread)}
-        >
-          <Cell
-            main={ats ? fmtPct(ats.home) : spread !== null ? fmtSpread(spread) : "—"}
-          />
-        </PickButton>
-
-        <PickButton
           active={selectionFor("straight_up") === game.away_team}
           result={resultFor("straight_up")}
           edge={rec?.lean_straight_up === game.away_team}
@@ -140,13 +111,40 @@ export function GamePickCard({
         </PickButton>
 
         <PickButton
+          active={selectionFor("ats") === game.away_team}
+          result={resultFor("ats")}
+          edge={rec?.lean_ats === game.away_team}
+          disabled={locked || spread === null}
+          hint={`${game.away.name} ${spread !== null ? fmtSpread(-spread) : ""} spread`}
+          color={game.away.color}
+          secondary={game.away.secondary}
+          onClick={() => togglePick("ats", game.away_team, spread !== null ? -spread : null)}
+        >
+          <Cell
+            main={ats ? fmtPct(ats.away) : spread !== null ? fmtSpread(-spread) : "—"}
+          />
+        </PickButton>
+        <PickButton
+          active={selectionFor("ats") === game.home_team}
+          result={resultFor("ats")}
+          edge={rec?.lean_ats === game.home_team}
+          disabled={locked || spread === null}
+          hint={`${game.home.name} ${spread !== null ? fmtSpread(spread) : ""} spread`}
+          color={game.home.color}
+          secondary={game.home.secondary}
+          onClick={() => togglePick("ats", game.home_team, spread)}
+        >
+          <Cell
+            main={ats ? fmtPct(ats.home) : spread !== null ? fmtSpread(spread) : "—"}
+          />
+        </PickButton>
+
+        <PickButton
           active={selectionFor("total") === "over"}
           result={resultFor("total")}
           edge={rec?.lean_total === "over"}
           disabled={locked || total === null}
           hint={`Over ${total ?? ""}`}
-          color={game.away.color}
-          secondary={game.away.secondary}
           onClick={() => togglePick("total", "over", total)}
         >
           <Cell main={tot ? fmtPct(tot.over) : total !== null ? `O ${total}` : "—"} />
@@ -157,8 +155,6 @@ export function GamePickCard({
           edge={rec?.lean_total === "under"}
           disabled={locked || total === null}
           hint={`Under ${total ?? ""}`}
-          color={game.home.color}
-          secondary={game.home.secondary}
           onClick={() => togglePick("total", "under", total)}
         >
           <Cell main={tot ? fmtPct(tot.under) : total !== null ? `U ${total}` : "—"} />

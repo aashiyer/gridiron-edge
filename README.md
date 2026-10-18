@@ -110,6 +110,7 @@ python -m scripts.train_total_model    # same, for the Over/Under model
 | `stadiums.py` | Static lat/long per team's home stadium, for weather lookups. |
 | `teams.py` | Static team metadata (abbreviation, name, ESPN logo, color) and `normalize_abbr` for nflverse/ESPN abbreviation mismatches. |
 | `routers/auth.py` | `/api/auth/*` — signup, login, `/me`, password/display-name change, favorite teams, favorite NBA team (`user_favorite_nba_team`). |
+| `nba_matchup.py` (backend) | SQL-aggregated team cards for the NBA game view (record, ATS, O/U, ratings, shooting, last 5, rest, head to head), memoized 10 min. |
 | `routers/games.py` | `/api/games/*` — game list/detail, recommendations, power rankings. Literal routes are registered before `/{game_id}` to avoid FastAPI's catch-all route-ordering trap. |
 | `routers/picks.py` | `/api/picks/*` — create/update/delete picks, grading (win/loss/push) against closing lines. |
 | `routers/dashboard.py` | `/api/dashboard/*` — the current user's SU/ATS/Total records (optionally for one season, used by the home page) and the vs-model comparison. |
@@ -128,6 +129,7 @@ python -m scripts.train_total_model    # same, for the Over/Under model
 | `tick.py` | Entry point for every scheduled job (`python -m ingestion.tick --job <name>`). `JOBS` dict maps a name to a function; see `.github/workflows/cron.yml` for the schedule. |
 | `import_picks_sheet.py` | One-off importer for the group's Excel picks sheets (any season's layout, 2023 onward): `python -m ingestion.import_picks_sheet --file <xlsx> --season <year> --user Name=email [--apply]`. Dry run by default; only adds picks the app doesn't already have (app picks win), using the sheet's own lines and the app's final scores. Games without a week label are matched by team pair in order. |
 | `nba.py` | Pulls the NBA schedule, scores and DraftKings lines from ESPN's public scoreboard (one small request per day) into the shared `games` table (`sport = 'nba'`). Writes a line snapshot only when a line changes. Run by the `nba` and `nba_schedule` jobs. |
+| `nba_stats.py` | Team box scores for finished NBA games (ESPN summary, one request per game, a few per run) into `nba_team_games`. Run as part of the `nba` job. |
 | `espn_odds.py` | Polls ESPN's unofficial API for the current week's live odds, scores, and status; auto-grades picks on games going final. |
 | `backfill_historical.py` | One-time-per-range backfill of `games` (schedules, closing lines, results) from nflverse. |
 | `pbp_stats.py` | Aggregates nflverse play-by-play into team-week efficiency stats (EPA/play, success rate, yards/play, 3rd-down%, red-zone%, turnovers). |

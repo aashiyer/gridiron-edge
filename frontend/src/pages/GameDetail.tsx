@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../lib/api";
-import type { GameDetail as GameDetailType, Pick, TeamMeta, TeamForm, TeamEfficiency, DepthChart, DepthChartEntry, QbStatus } from "../lib/types";
+import type { GameDetail as GameDetailType, NbaMatchup, NbaTeamMatchup, Pick, TeamMeta, TeamForm, TeamEfficiency, DepthChart, DepthChartEntry, QbStatus } from "../lib/types";
 import { TeamLogo } from "../components/TeamBadge";
 import { PickRow, PickButton } from "../components/GamePickCard";
 import { LineMovementChart } from "../components/LineMovementChart";
@@ -91,8 +91,9 @@ export function GameDetailPage() {
 
   const rec = detail.recommendation;
   const isFinal = detail.status === "final";
-  const line = rec?.current_line ?? detail.home_spread_close;
-  const total = rec?.current_total ?? detail.total_close;
+  const lastOdds = detail.odds_history[detail.odds_history.length - 1];
+  const line = rec?.current_line ?? detail.home_spread_close ?? lastOdds?.home_spread ?? null;
+  const total = rec?.current_total ?? detail.total_close ?? lastOdds?.total ?? null;
 
   return (
     <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-8 flex flex-col gap-6">
@@ -102,7 +103,7 @@ export function GameDetailPage() {
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm p-4 sm:p-6">
         <div className="flex items-center justify-between text-xs text-[var(--text-muted)] mb-4">
           <span>
-            {detail.season} Season · Week {detail.week}
+            {detail.matchup ? `${detail.season}-${String(detail.season + 1).slice(2)} Season` : `${detail.season} Season`} · Week {detail.week}
             {detail.game_type && detail.game_type !== "REG" ? ` · ${detail.game_type}` : ""}
           </span>
           <span className={`uppercase tracking-wide font-semibold ${isFinal ? "text-[var(--text-faint)]" : "text-emerald-400"}`}>
@@ -141,6 +142,8 @@ export function GameDetailPage() {
 
       {detail.odds_history.length > 0 && <OddsHistorySection history={detail.odds_history} homeTeam={detail.home_team} />}
 
+      {detail.matchup && <NbaMatchupSection detail={detail} matchup={detail.matchup} />}
+
       {rec && !rec.error && <EdgeSection rec={rec} />}
 
       {rec && !rec.error && (rec.home_qb_status || rec.away_qb_status) && (
@@ -162,7 +165,9 @@ export function GameDetailPage() {
         />
       )}
 
-      <DepthChartSection homeTeam={detail.home} awayTeam={detail.away} home={detail.home_depth_chart} away={detail.away_depth_chart} />
+      {!detail.matchup && (
+        <DepthChartSection homeTeam={detail.home} awayTeam={detail.away} home={detail.home_depth_chart} away={detail.away_depth_chart} />
+      )}
     </div>
   );
 }
@@ -181,8 +186,9 @@ function MakePickSection({
   const existingPicks = picks.filter((p) => p.game_id === detail.game_id);
   const { selectionFor, togglePick, locked, error } = usePickToggle(detail, existingPicks, onPickMade);
 
-  const spread = rec?.current_line ?? detail.home_spread_close;
-  const total = rec?.current_total ?? detail.total_close;
+  const lastOdds = detail.odds_history[detail.odds_history.length - 1];
+  const spread = rec?.current_line ?? detail.home_spread_close ?? lastOdds?.home_spread ?? null;
+  const total = rec?.current_total ?? detail.total_close ?? lastOdds?.total ?? null;
 
   return (
     <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm p-4 sm:p-5">
@@ -242,8 +248,6 @@ function MakePickSection({
             active={selectionFor("total") === "over"}
             edge={rec?.lean_total === "over"}
             disabled={locked || total === null}
-            color={detail.away.color}
-            secondary={detail.away.secondary}
             onClick={() => togglePick("total", "over", total)}
           >
             Over {total ?? ""}
@@ -252,8 +256,6 @@ function MakePickSection({
             active={selectionFor("total") === "under"}
             edge={rec?.lean_total === "under"}
             disabled={locked || total === null}
-            color={detail.home.color}
-            secondary={detail.home.secondary}
             onClick={() => togglePick("total", "under", total)}
           >
             Under {total ?? ""}
@@ -571,5 +573,122 @@ function OddsHistorySection({ history, homeTeam }: { history: GameDetailType["od
       <h2 className="text-sm font-bold text-[var(--text)] mb-3">Line Movement</h2>
       <LineMovementChart history={history} homeTeam={homeTeam} />
     </section>
+  );
+}
+
+const dash = (v: number | null | undefined, digits = 1, suffix = "") => (v === null || v === undefined ? "—" : `${v.toFixed(digits)}${suffix}`);
+
+function NbaMatchupSection({ detail, matchup }: { detail: GameDetailType; matchup: NbaMatchup }) {
+  const { away, home } = matchup;
+  const a = away.stats;
+  const h = home.stats;
+  const rows: { label: string; away: string; home: string }[] = [
+    { label: "Record", away: away.record ?? "0-0", home: home.record ?? "0-0" },
+    { label: "Road / home record", away: away.away_record ?? "0-0", home: home.home_record ?? "0-0" },
+    { label: "ATS", away: away.ats ? `${away.ats}${away.ats_pct != null ? ` (${away.ats_pct}%)` : ""}` : "—", home: home.ats ? `${home.ats}${home.ats_pct != null ? ` (${home.ats_pct}%)` : ""}` : "—" },
+    { label: "Over / under", away: away.ou ?? "—", home: home.ou ?? "—" },
+    { label: "Streak", away: away.streak ?? "—", home: home.streak ?? "—" },
+    { label: "Days of rest", away: restLabel(away), home: restLabel(home) },
+    { label: "Points", away: dash(a?.ppg), home: dash(h?.ppg) },
+    { label: "Points allowed", away: dash(a?.opp_ppg), home: dash(h?.opp_ppg) },
+    { label: "Net rating", away: a?.net_rtg != null ? fmtSigned(a.net_rtg) : "—", home: h?.net_rtg != null ? fmtSigned(h.net_rtg) : "—" },
+    { label: "Off rating", away: dash(a?.ortg), home: dash(h?.ortg) },
+    { label: "Def rating", away: dash(a?.drtg), home: dash(h?.drtg) },
+    { label: "Pace", away: dash(a?.pace), home: dash(h?.pace) },
+    { label: "eFG%", away: dash(a?.efg, 1, "%"), home: dash(h?.efg, 1, "%") },
+    { label: "Opp eFG%", away: dash(a?.opp_efg, 1, "%"), home: dash(h?.opp_efg, 1, "%") },
+    { label: "3P%", away: dash(a?.tp_pct, 1, "%"), home: dash(h?.tp_pct, 1, "%") },
+    { label: "FT%", away: dash(a?.ft_pct, 1, "%"), home: dash(h?.ft_pct, 1, "%") },
+    { label: "Rebounds", away: dash(a?.reb), home: dash(h?.reb) },
+    { label: "Assists", away: dash(a?.ast), home: dash(h?.ast) },
+    { label: "Turnovers", away: dash(a?.tov), home: dash(h?.tov) },
+    { label: "Steals + blocks", away: a?.stl != null && a?.blk != null ? (a.stl + a.blk).toFixed(1) : "—", home: h?.stl != null && h?.blk != null ? (h.stl + h.blk).toFixed(1) : "—" },
+    { label: "Points in paint", away: dash(a?.paint), home: dash(h?.paint) },
+    { label: "Fast-break pts", away: dash(a?.fastbreak), home: dash(h?.fastbreak) },
+  ];
+  const played = Math.max(a?.gp ?? 0, h?.gp ?? 0);
+  return (
+    <>
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm overflow-hidden">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 sm:px-5 py-3 border-b border-[var(--border)]">
+          <div className="flex items-center gap-2">
+            <TeamLogo team={detail.away} size={22} />
+            <span className="text-sm font-semibold text-[var(--text)]">{detail.away.abbr}</span>
+          </div>
+          <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-faint)]">Team Stats</span>
+          <div className="flex items-center gap-2 justify-end">
+            <span className="text-sm font-semibold text-[var(--text)]">{detail.home.abbr}</span>
+            <TeamLogo team={detail.home} size={22} />
+          </div>
+        </div>
+        <div className="flex flex-col divide-y divide-[var(--border)]">
+          {rows.map((r) => (
+            <div key={r.label} className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 sm:px-5 py-2.5 text-sm">
+              <span className="text-[var(--text)] tabular-nums">{r.away}</span>
+              <span className="text-[11px] text-[var(--text-faint)] text-center px-2">{r.label}</span>
+              <span className="text-[var(--text)] tabular-nums text-right">{r.home}</span>
+            </div>
+          ))}
+        </div>
+        <div className="px-4 sm:px-5 py-2.5 text-[11px] text-[var(--text-faint)] border-t border-[var(--border)]">
+          {played === 0
+            ? "Season stats appear once teams have played. Per-game averages, before this game."
+            : `Season per-game averages through ${played} game${played === 1 ? "" : "s"}, before this game. Ratings are per 100 possessions.`}
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm p-4 sm:p-5">
+        <h2 className="text-sm font-bold text-[var(--text)] mb-3">Last 5</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <RecentColumn team={detail.away} data={away} />
+          <RecentColumn team={detail.home} data={home} />
+        </div>
+        {matchup.h2h.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-[var(--border)]">
+            <h3 className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-faint)] mb-2">Head to head this season</h3>
+            <div className="flex flex-col gap-1">
+              {matchup.h2h.map((g) => (
+                <div key={g.day + g.home} className="text-sm text-[var(--text-muted)] tabular-nums">
+                  {g.day} · {g.away} {g.away_score} @ {g.home} {g.home_score}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
+    </>
+  );
+}
+
+function restLabel(t: NbaTeamMatchup) {
+  if (t.rest_days === null) return "—";
+  return t.rest_days === 0 ? "0 (back-to-back)" : String(t.rest_days);
+}
+
+const RESULT_TONE: Record<string, string> = {
+  W: "bg-emerald-500/15 text-emerald-500 border-emerald-500/30",
+  L: "bg-rose-500/15 text-rose-500 border-rose-500/30",
+  P: "bg-amber-500/15 text-amber-500 border-amber-500/30",
+};
+
+function RecentColumn({ team, data }: { team: TeamMeta; data: NbaTeamMatchup }) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-2">
+        <TeamLogo team={team} size={20} />
+        <span className="text-sm font-semibold text-[var(--text)]">{team.abbr}</span>
+      </div>
+      {data.last5.length === 0 && <div className="text-xs text-[var(--text-faint)]">No games yet.</div>}
+      <div className="flex flex-col gap-1">
+        {data.last5.map((g) => (
+          <div key={g.day + g.opp} className="flex items-center gap-2 text-xs">
+            <span className={`w-5 text-center rounded border font-semibold ${RESULT_TONE[g.result]}`}>{g.result}</span>
+            <span className="text-[var(--text-muted)] w-14">{g.home ? "vs" : "@"} {g.opp}</span>
+            <span className="text-[var(--text)] tabular-nums">{g.score}</span>
+            {g.ats && <span className={`ml-auto px-1.5 rounded border text-[10px] font-semibold ${RESULT_TONE[g.ats]}`}>ATS {g.ats}</span>}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

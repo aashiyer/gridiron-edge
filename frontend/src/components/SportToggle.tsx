@@ -2,7 +2,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useSport } from "../lib/SportContext";
 import type { Sport } from "../lib/api";
 
-export const NFL_ONLY_PATHS = ["/power-rankings", "/vs-model", "/games"];
+export const NFL_ONLY_PATHS = ["/power-rankings", "/vs-model"];
 
 const OPTIONS: { value: Sport; label: string }[] = [
   { value: "nfl", label: "NFL" },
@@ -17,7 +17,7 @@ export function SportToggle({ compact = false }: { compact?: boolean }) {
   function choose(next: Sport) {
     if (next === sport) return;
     setSport(next);
-    if (next === "nba" && NFL_ONLY_PATHS.some((p) => pathname.startsWith(p))) navigate("/");
+    if (next === "nba" && (pathname === "/games" || NFL_ONLY_PATHS.some((p) => pathname.startsWith(p)))) navigate("/");
   }
 
   return (

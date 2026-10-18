@@ -380,7 +380,6 @@ export function Picker() {
             onPickMade={refreshPicks}
             view={isNba ? "spread" : view}
             kalshi={kalshi[g.game_id] ?? null}
-            detailLink={!isNba}
           />
         ))}
       </div>

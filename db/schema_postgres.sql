@@ -261,3 +261,16 @@ CREATE TABLE IF NOT EXISTS user_favorite_nba_team (
     user_id  INTEGER PRIMARY KEY REFERENCES users(user_id),
     team     TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS nba_team_games (
+    game_id   TEXT NOT NULL,
+    team      TEXT NOT NULL,
+    opp       TEXT NOT NULL,
+    is_home   INTEGER NOT NULL,
+    pts       INTEGER, opp_pts INTEGER,
+    fgm INTEGER, fga INTEGER, tpm INTEGER, tpa INTEGER, ftm INTEGER, fta INTEGER,
+    reb INTEGER, oreb INTEGER, ast INTEGER, stl INTEGER, blk INTEGER, tov INTEGER, pf INTEGER,
+    paint INTEGER, fastbreak INTEGER,
+    PRIMARY KEY (game_id, team)
+);
+CREATE INDEX IF NOT EXISTS idx_nba_team_games_team ON nba_team_games(team);

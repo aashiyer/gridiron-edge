@@ -283,6 +283,13 @@ def get_game_detail(game_id: str):
         odds_history = conn.execute(
             "SELECT * FROM odds_snapshots WHERE game_id = ? ORDER BY captured_at ASC", (game_id,)
         ).fetchall()
+        if (game["sport"] or "nfl") == "nba":
+            from backend.nba_matchup import nba_matchup
+
+            result = _serialize_game(game)
+            result["odds_history"] = [dict(h) for h in odds_history]
+            result["matchup"] = nba_matchup(conn, game_id, game["season"], game["kickoff_time"], game["home_team"], game["away_team"])
+            return result
         home_depth_chart = _depth_chart_for(conn, game["home_team"])
         away_depth_chart = _depth_chart_for(conn, game["away_team"])
 

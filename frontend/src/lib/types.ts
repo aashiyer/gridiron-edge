@@ -347,6 +347,44 @@ export interface GameDetail {
   home_depth_chart: DepthChart;
   away_depth_chart: DepthChart;
   recommendation: Recommendation | null;
+  matchup?: NbaMatchup;
+}
+
+export interface NbaRecentGame {
+  opp: string;
+  home: boolean;
+  result: "W" | "L";
+  score: string;
+  ats: "W" | "L" | "P" | null;
+  day: string;
+}
+
+export interface NbaTeamStats {
+  gp: number;
+  ppg: number | null; opp_ppg: number | null; net: number | null;
+  ortg: number | null; drtg: number | null; net_rtg: number | null; pace: number | null;
+  efg: number | null; opp_efg: number | null; fg_pct: number | null; tp_pct: number | null; ft_pct: number | null; tpa: number | null;
+  reb: number | null; ast: number | null; stl: number | null; blk: number | null; tov: number | null;
+  paint: number | null; fastbreak: number | null;
+}
+
+export interface NbaTeamMatchup {
+  record?: string;
+  home_record?: string;
+  away_record?: string;
+  ats?: string;
+  ats_pct?: number | null;
+  ou?: string;
+  stats?: NbaTeamStats;
+  last5: NbaRecentGame[];
+  streak: string | null;
+  rest_days: number | null;
+}
+
+export interface NbaMatchup {
+  home: NbaTeamMatchup;
+  away: NbaTeamMatchup;
+  h2h: { day: string; home: string; away: string; home_score: number; away_score: number }[];
 }
 
 export interface KalshiGame {

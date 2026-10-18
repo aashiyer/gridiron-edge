@@ -186,8 +186,10 @@ def run_recs(days=7):
 
 def run_nba():
     from ingestion.nba import run_nba as pull
+    from ingestion.nba_stats import sync_box_scores
 
     pull()
+    sync_box_scores()
 
 
 def run_nba_schedule():

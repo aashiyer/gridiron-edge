@@ -301,6 +301,22 @@ def get_game_detail(game_id: str):
     return result
 
 
+@router.get("/{game_id}/espn")
+def get_game_espn(game_id: str):
+    """Live ESPN extras for an NBA game (venue, injuries, leaders, standings,
+    box score...). Not stored anywhere, so it never touches the database
+    beyond one tiny status lookup."""
+    if not game_id.startswith("nba-"):
+        return {}
+    from backend.nba_espn import fetch_extras
+
+    with db_session() as conn:
+        row = conn.execute("SELECT status FROM games WHERE game_id = ?", (game_id,)).fetchone()
+    if not row:
+        return {"error": "not found"}
+    return fetch_extras(game_id[4:], row["status"])
+
+
 @router.get("/meta/seasons")
 def list_seasons(sport: str = "nfl"):
     with db_session() as conn:

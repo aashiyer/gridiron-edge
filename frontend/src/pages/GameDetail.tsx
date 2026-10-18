@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../lib/api";
-import type { GameDetail as GameDetailType, NbaMatchup, NbaTeamMatchup, Pick, TeamMeta, TeamForm, TeamEfficiency, DepthChart, DepthChartEntry, QbStatus } from "../lib/types";
+import type { GameDetail as GameDetailType, NbaEspn, EspnPlayer, NbaMatchup, NbaTeamMatchup, Pick, TeamMeta, TeamForm, TeamEfficiency, DepthChart, DepthChartEntry, QbStatus } from "../lib/types";
 import { TeamLogo } from "../components/TeamBadge";
 import { PickRow, PickButton } from "../components/GamePickCard";
 import { LineMovementChart } from "../components/LineMovementChart";
@@ -49,6 +49,12 @@ export function GameDetailPage() {
   const [detail, setDetail] = useState<GameDetailType | null>(null);
   const [error, setError] = useState(false);
   const [picks, setPicks] = useState<Pick[]>([]);
+  const [espn, setEspn] = useState<NbaEspn | null>(null);
+
+  useEffect(() => {
+    setEspn(null);
+    if (gameId?.startsWith("nba-")) api.gameEspn(gameId).then(setEspn).catch(() => {});
+  }, [gameId]);
 
   useEffect(() => {
     if (!gameId) return;
@@ -143,6 +149,8 @@ export function GameDetailPage() {
       {detail.odds_history.length > 0 && <OddsHistorySection history={detail.odds_history} homeTeam={detail.home_team} />}
 
       {detail.matchup && <NbaMatchupSection detail={detail} matchup={detail.matchup} />}
+
+      {detail.matchup && espn && <NbaEspnSection detail={detail} espn={espn} />}
 
       {rec && !rec.error && <EdgeSection rec={rec} />}
 
@@ -690,5 +698,175 @@ function RecentColumn({ team, data }: { team: TeamMeta; data: NbaTeamMatchup }) 
         ))}
       </div>
     </div>
+  );
+}
+
+function PlayerLine({ p, right }: { p: EspnPlayer; right?: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2.5 text-sm py-1">
+      {p.headshot ? (
+        <img src={p.headshot} alt="" loading="lazy" className="w-7 h-7 rounded-full object-cover bg-[var(--surface)]" />
+      ) : (
+        <span className="w-7 h-7 rounded-full bg-[var(--surface)]" />
+      )}
+      <span className="text-[var(--text)]">{p.name}</span>
+      <span className="text-[11px] text-[var(--text-faint)]">
+        {p.position}
+        {p.jersey ? ` · #${p.jersey}` : ""}
+      </span>
+      {right && <span className="ml-auto">{right}</span>}
+    </div>
+  );
+}
+
+const STATUS_TONE: Record<string, string> = {
+  Out: "text-rose-500",
+  Doubtful: "text-rose-400",
+  Questionable: "text-amber-500",
+  "Day-To-Day": "text-amber-500",
+  Probable: "text-emerald-500",
+};
+
+function Card({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm p-4 sm:p-5">
+      <h2 className="text-sm font-bold text-[var(--text)] mb-3">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+function TeamHeading({ team }: { team: TeamMeta }) {
+  return (
+    <div className="flex items-center gap-2 mb-1.5">
+      <TeamLogo team={team} size={20} />
+      <span className="text-sm font-semibold text-[var(--text)]">{team.abbr}</span>
+    </div>
+  );
+}
+
+function NbaEspnSection({ detail, espn }: { detail: GameDetailType; espn: NbaEspn }) {
+  const teams: [TeamMeta, string][] = [[detail.away, detail.away.abbr], [detail.home, detail.home.abbr]];
+  const hasBox = Object.keys(espn.box).length > 0;
+  const odds = espn.odds;
+  const fmtOdds = (n: number | null) => (n === null || n === undefined ? "—" : n > 0 ? `+${n}` : `${n}`);
+  return (
+    <>
+      <Card title="Game info">
+        <div className="flex flex-col sm:flex-row gap-4">
+          {espn.venue?.image && <img src={espn.venue.image} alt="" loading="lazy" className="w-full sm:w-56 rounded-xl object-cover" />}
+          <div className="flex flex-col gap-1.5 text-sm text-[var(--text-muted)]">
+            {espn.venue?.name && (
+              <div>
+                <span className="text-[var(--text)] font-medium">{espn.venue.name}</span>
+                {espn.venue.city ? ` · ${espn.venue.city}${espn.venue.state ? `, ${espn.venue.state}` : ""}` : ""}
+              </div>
+            )}
+            {espn.broadcasts.length > 0 && <div>TV: {espn.broadcasts.join(", ")}</div>}
+            {espn.attendance && <div>Attendance: {espn.attendance.toLocaleString()}</div>}
+            {espn.series.map((s) => (
+              <div key={s.title}>{s.title}: {s.summary}</div>
+            ))}
+            {espn.officials.length > 0 && <div>Officials: {espn.officials.map((o) => o.name).join(", ")}</div>}
+            {odds && (
+              <div className="mt-1 text-xs">
+                {odds.provider}: {odds.details} · O/U {odds.over_under} (O {fmtOdds(odds.over_odds)} / U {fmtOdds(odds.under_odds)}) · ML {detail.away.abbr} {fmtOdds(odds.away_ml)} / {detail.home.abbr} {fmtOdds(odds.home_ml)}
+              </div>
+            )}
+          </div>
+        </div>
+      </Card>
+
+      <Card title="Injuries">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {teams.map(([t, abbr]) => (
+            <div key={abbr}>
+              <TeamHeading team={t} />
+              {(espn.injuries[abbr] ?? []).length === 0 && <div className="text-xs text-[var(--text-faint)]">No reported injuries.</div>}
+              {(espn.injuries[abbr] ?? []).map((i) => (
+                <div key={i.name ?? ""} className="py-0.5">
+                  <PlayerLine p={i} right={<span className={`text-xs font-semibold ${STATUS_TONE[i.status] ?? "text-[var(--text-muted)]"}`}>{i.status}{i.detail ? ` · ${i.detail}` : ""}</span>} />
+                  {i.note && <div className="text-[11px] text-[var(--text-faint)] pl-9 -mt-0.5">{i.note}</div>}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {Object.keys(espn.leaders).length > 0 && (
+        <Card title={espn.leaders_kind === "game" ? "Game leaders" : "Team leaders"}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {teams.map(([t, abbr]) => (
+              <div key={abbr}>
+                <TeamHeading team={t} />
+                {(espn.leaders[abbr] ?? []).map((l) => (
+                  <PlayerLine key={l.category} p={l} right={<span className="text-xs tabular-nums text-[var(--text-muted)]"><b className="text-[var(--text)]">{l.value}</b> {l.category.toLowerCase()}</span>} />
+                ))}
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {Object.keys(espn.standings).length > 0 && (
+        <Card title="Standings">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {teams.map(([t, abbr]) => {
+              const st = espn.standings[abbr];
+              const ats = espn.ats[abbr] ?? [];
+              return (
+                <div key={abbr}>
+                  <TeamHeading team={t} />
+                  {st && <div className="text-[11px] text-[var(--text-faint)] mb-1">{st.group}</div>}
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--text-muted)]">
+                    {st && Object.entries(st.stats).map(([k, v]) => (
+                      <span key={k}>{k}: <b className="text-[var(--text)]">{v}</b></span>
+                    ))}
+                    {ats.map((r) => r.record && <span key={r.label}>{r.label}: <b className="text-[var(--text)]">{r.record}</b></span>)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
+      {hasBox &&
+        teams.map(([t, abbr]) => {
+          const b = espn.box[abbr];
+          if (!b) return null;
+          const cols = b.labels.filter(Boolean);
+          return (
+            <section key={abbr} className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm overflow-hidden">
+              <div className="flex items-center gap-2 px-4 sm:px-5 py-3 border-b border-[var(--border)]">
+                <TeamLogo team={t} size={20} />
+                <span className="text-sm font-bold text-[var(--text)]">{abbr} box score</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs tabular-nums whitespace-nowrap">
+                  <thead>
+                    <tr className="text-[var(--text-faint)] border-b border-[var(--border)]">
+                      <th className="sticky left-0 bg-[var(--card)] text-left px-4 py-2 font-semibold">Player</th>
+                      {cols.map((c) => <th key={c} className="px-2 py-2 text-right font-semibold">{c}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--border)]">
+                    {b.players.map((p) => (
+                      <tr key={p.name ?? ""}>
+                        <td className="sticky left-0 bg-[var(--card)] px-4 py-1.5 text-[var(--text)]">
+                          {p.short}
+                          <span className="text-[var(--text-faint)]"> {p.position}</span>
+                        </td>
+                        {cols.map((c) => <td key={c} className="px-2 py-1.5 text-right text-[var(--text-muted)]">{p.stats[c] ?? ""}</td>)}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          );
+        })}
+    </>
   );
 }

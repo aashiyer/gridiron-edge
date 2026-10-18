@@ -470,3 +470,25 @@ export interface WeeksResponse {
   weeks: { week: number; games: number; complete: boolean; first_kickoff: string | null }[];
   current_week: number | null;
 }
+
+export interface EspnPlayer {
+  name: string | null; short: string | null; jersey: string | null; position: string | null; headshot: string | null;
+}
+
+export interface NbaEspn {
+  venue: { name: string | null; city: string | null; state: string | null; image: string | null; indoor: boolean } | null;
+  attendance: number | null;
+  officials: { name: string; role: string }[];
+  broadcasts: string[];
+  leaders: { [abbr: string]: (EspnPlayer & { category: string; value: string })[] };
+  leaders_kind: "game" | "season";
+  injuries: { [abbr: string]: (EspnPlayer & { status: string; detail: string | null; note: string | null; date: string | null })[] };
+  standings: { [abbr: string]: { group: string; stats: { [name: string]: string } } };
+  ats: { [abbr: string]: { label: string; record: string }[] };
+  series: { summary: string; title: string }[];
+  box: { [abbr: string]: { labels: string[]; players: (EspnPlayer & { starter: boolean; stats: { [label: string]: string } })[] } };
+  odds: {
+    provider: string | null; details: string | null; over_under: number | null; over_odds: number | null; under_odds: number | null;
+    away_ml: number | null; home_ml: number | null; away_spread_odds: number | null; home_spread_odds: number | null;
+  } | null;
+}

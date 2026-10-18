@@ -7,7 +7,7 @@ import type {
   ExportSlide,
   RecordsResponse,
   WeeksResponse,
-  GameDetail,
+  GameDetail, NbaEspn,
   TeamMeta,
   VsModelSummary,
   StandingsResponse,
@@ -131,6 +131,7 @@ export const api = {
   game: (gameId: string) => req<Game>(`/games/${gameId}`),
   recommendation: (gameId: string) => req<Recommendation>(`/games/${gameId}/recommendation`),
   gameDetail: (gameId: string) => req<GameDetail>(`/games/${gameId}/detail`),
+  gameEspn: (gameId: string) => req<NbaEspn>(`/games/${gameId}/espn`),
   recommendations: (params: { season: number; week: number }) =>
     req<Record<string, Recommendation>>(`/games/recommendations?season=${params.season}&week=${params.week}`),
   kalshi: (params: { season: number; week: number }) =>

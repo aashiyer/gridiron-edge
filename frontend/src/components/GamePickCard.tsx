@@ -59,8 +59,15 @@ export function GamePickCard({
     >
       <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
         <span>{fmtKickoff(game.kickoff_time)}</span>
-        <span className={`uppercase tracking-wide ${locked ? "text-orange-400 font-semibold" : ""}`}>
-          {locked ? "🔒 Locked" : game.status.replace("_", " ")}
+        <span className="flex items-center gap-3">
+          <span className={`uppercase tracking-wide ${locked ? "text-orange-400 font-semibold" : ""}`}>
+            {locked ? "🔒 Locked" : game.status.replace("_", " ")}
+          </span>
+          {detailLink && (
+            <Link to={`/games/${game.game_id}`} className="font-semibold text-[var(--accent)] hover:underline">
+              Stats ›
+            </Link>
+          )}
         </span>
       </div>
 

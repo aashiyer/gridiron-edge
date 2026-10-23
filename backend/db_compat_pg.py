@@ -148,8 +148,22 @@ def connect_postgres(database_url: str) -> PgConnection:
             if _pool is None:
                 import psycopg2.pool
 
-                _pool = psycopg2.pool.ThreadedConnectionPool(_POOL_MIN, _POOL_MAX, dsn=database_url)
+                _pool = psycopg2.pool.ThreadedConnectionPool(
+                    _POOL_MIN, _POOL_MAX, dsn=database_url,
+                    keepalives=1, keepalives_idle=30, keepalives_interval=10, keepalives_count=3,
+                )
 
-    raw = _pool.getconn()
-    raw.rollback()
-    return PgConnection(raw, pool=_pool)
+    # The pooler drops idle server connections without telling us, so check a
+    # connection is alive before handing it out and throw dead ones away.
+    for attempt in range(_POOL_MAX + 2):
+        raw = _pool.getconn()
+        try:
+            raw.rollback()
+            cur = raw.cursor()
+            cur.execute("SELECT 1")
+            cur.close()
+            raw.rollback()
+            return PgConnection(raw, pool=_pool)
+        except Exception:
+            _pool.putconn(raw, close=True)
+    raise RuntimeError("could not get a working database connection")

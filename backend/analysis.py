@@ -644,6 +644,9 @@ def freeze_recommendation(game_id: str, overwrite: bool = False) -> bool:
                ON CONFLICT(game_id) DO UPDATE SET payload = excluded.payload, frozen_at = excluded.frozen_at""",
             (game_id, json.dumps(result), datetime.now(timezone.utc).isoformat()),
         )
+        from backend.model_stats import store_model_call
+
+        store_model_call(conn, game_id, result)
     return True
 
 

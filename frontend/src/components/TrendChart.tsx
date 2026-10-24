@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import type { TrendPoint } from "../lib/types";
 
-export type TrendMode = "units" | "rolling_ats" | "su_over" | "rolling_su";
+export type TrendMode = "units" | "rolling_ats" | "su_over" | "rolling_su" | "rolling_total";
 
 const W = 720;
 const H = 260;
@@ -11,6 +11,7 @@ const MODES: { [m in TrendMode]: { value: (p: TrendPoint) => number | null; base
   units: { value: (p) => p.cumulative_units, baseline: 0, cumulative: true, pct: false, label: "Cumulative units" },
   rolling_ats: { value: (p) => p.rolling_ats_pct, baseline: 52.4, cumulative: false, pct: true, label: "Rolling 25-pick ATS win percentage" },
   su_over: { value: (p) => p.su_wins_over_500, baseline: 0, cumulative: true, pct: false, label: "Straight-up wins over .500" },
+  rolling_total: { value: (p) => p.rolling_ats_pct, baseline: 52.4, cumulative: false, pct: true, label: "Rolling 25-game over/under win percentage" },
   rolling_su: { value: (p) => p.rolling_su_pct, baseline: 50, cumulative: false, pct: true, label: "Rolling 25-pick straight-up win percentage" },
 };
 

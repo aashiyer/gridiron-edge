@@ -13,7 +13,7 @@ const baseTabs = [
   { to: "/leaderboard", label: "Leaderboard", icon: TrophyIcon },
   { to: "/power-rankings", label: "Power Rankings", icon: RankIcon },
   { to: "/record", label: "Record", icon: ChartIcon },
-  { to: "/vs-model", label: "vs. Model", icon: ScaleIcon },
+  { to: "/vs-model", label: "Model", icon: ScaleIcon },
   { to: "/games", label: "Games", icon: CalendarIcon },
 ];
 

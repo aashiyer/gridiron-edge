@@ -274,3 +274,21 @@ CREATE TABLE IF NOT EXISTS nba_team_games (
     PRIMARY KEY (game_id, team)
 );
 CREATE INDEX IF NOT EXISTS idx_nba_team_games_team ON nba_team_games(team);
+
+-- One compact row per game for the model's frozen call, so model stats are a
+-- light query instead of re-reading every full recommendation snapshot.
+CREATE TABLE IF NOT EXISTS model_calls (
+    game_id          TEXT PRIMARY KEY REFERENCES games(game_id),
+    lean_su          TEXT,
+    conf_su          REAL,
+    lean_ats         TEXT,
+    conf_ats         REAL,
+    lean_total       TEXT,
+    conf_total       REAL,
+    line             REAL,
+    total_line       REAL,
+    prob_home_covers REAL,
+    home_gei         REAL,
+    away_gei         REAL,
+    frozen_at        TEXT
+);

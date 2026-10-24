@@ -7,7 +7,7 @@ import type {
   ExportSlide,
   RecordsResponse,
   WeeksResponse,
-  GameDetail, NbaEspn,
+  GameDetail, NbaEspn, ModelStats,
   TeamMeta,
   VsModelSummary,
   StandingsResponse,
@@ -171,6 +171,12 @@ export const api = {
 
   dashboard: (params: { season?: number } = {}) =>
     req<DashboardSummary>(`/dashboard?sport=${activeSport}${params.season ? `&season=${params.season}` : ""}`),
+  modelStats: (params: { season?: number; user_id?: number }) => {
+    const qs = new URLSearchParams();
+    if (params.season) qs.set("season", String(params.season));
+    if (params.user_id) qs.set("user_id", String(params.user_id));
+    return req<ModelStats>(`/model-stats?${qs.toString()}`);
+  },
   vsModel: () => req<VsModelSummary>(`/dashboard/vs-model`),
   leaderboardStandings: (season: number) => req<StandingsResponse>(`/leaderboard/standings?season=${season}&sport=${activeSport}`),
   leaderboardWeek: (season: number, week: number) => req<WeekBoard>(`/leaderboard/week?season=${season}&week=${week}&sport=${activeSport}`),

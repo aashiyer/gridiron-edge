@@ -492,3 +492,40 @@ export interface NbaEspn {
     away_ml: number | null; home_ml: number | null; away_spread_odds: number | null; home_spread_odds: number | null;
   } | null;
 }
+
+export interface ModelWeekMark { label: string; wins: number; losses: number; pushes: number; win_pct: number }
+export interface ModelSplitGroup { title: string; items: { label: string; record: Record }[] }
+export interface ModelCall { game_id: string; label: string; season: number; week: number; lean: string; confidence: number; result: string; score: string }
+export interface ModelPersonMarket {
+  n: number; you: Record; model: Record; agree_pct: number | null; disagree: number; you_right: number; model_right: number; both_wrong: number;
+}
+
+export interface ModelStats {
+  games_called: number;
+  graded_games: number;
+  available_seasons: number[];
+  scorecard: {
+    [m in "su" | "ats" | "total"]: {
+      record: Record; units: number | null; pending: number;
+      streaks: { current: { kind: string; length: number } | null; longest_win: number; longest_loss: number };
+      best_week: ModelWeekMark | null; worst_week: ModelWeekMark | null;
+    };
+  };
+  baselines: { always_favorite_su: Record; always_home_ats: Record; always_over: Record; always_under: Record };
+  validation: { test_season: number | null; test_acc: number | null } | null;
+  trend: { [m: string]: TrendPoint[] };
+  weeks: { season: number; week: number; label: string; games: number; su: Record; ats: Record; total: Record; ats_units: number; complete: boolean }[];
+  calibration: { [m: string]: { label: string; n: number; avg_conf: number; record: Record }[] };
+  splits: { [m: string]: ModelSplitGroup[] };
+  teams: { [m: string]: { [team: string]: { for: Record; against: Record } } };
+  extremes: { [m: string]: { hits: ModelCall[]; misses: ModelCall[] } };
+  people: { user_id: number; display_name: string; avatar_version: number; markets: { [m: string]: ModelPersonMarket } }[];
+  crowd: { [m: string]: { crowd: Record; model: Record; games: number } };
+  disagreements: {
+    game_id: string; season: number; week: number; matchup: string; market: string; your_pick: string; model_pick: string;
+    your_result: string; model_result: string; score: string;
+  }[];
+  you: number;
+  user_id: number;
+  team_meta: { [team: string]: TeamMeta };
+}

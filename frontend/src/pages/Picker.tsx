@@ -84,6 +84,16 @@ export function Picker() {
   const [view, setView] = useState<PickerView>(storedView);
   const [kalshi, setKalshi] = useState<Record<string, KalshiGame>>({});
   const [exportOpen, setExportOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = (e: PointerEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, [menuOpen]);
   const [mode, setModeState] = useState<"list" | "swipe">(() => {
     try {
       return localStorage.getItem("pickSixPickerMode") === "swipe" ? "swipe" : "list";
@@ -265,21 +275,68 @@ export function Picker() {
     return map;
   }, [picks]);
 
+  const weekIndex = weekOptions.findIndex((w) => w.week === week);
+  const stepWeek = (delta: number) => {
+    const next = weekOptions[weekIndex + delta];
+    if (next) {
+      setAutoWeek(false);
+      setWeek(next.week);
+    }
+  };
+  const isCurrentWeek = weeksInfo?.current_week === week;
+  const pickedCount = weekGames.filter((g) => picksByGame.has(g.game_id)).length;
+
   return (
     <div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
-      <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 mb-4 sm:mb-6">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-[var(--text)]">Pick the Slate</h1>
+      {currentSeason !== null && season !== null && (
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <div className="flex items-center gap-1 min-w-0">
+            <button
+              onClick={() => stepWeek(-1)}
+              disabled={weekIndex <= 0}
+              className="h-9 w-9 shrink-0 grid place-items-center rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--text)] disabled:opacity-40"
+              aria-label="Previous week"
+            >
+              ‹
+            </button>
+            <label className="relative min-w-0">
+              <span className="flex flex-col items-center px-2 leading-tight cursor-pointer">
+                <span className="font-display text-lg sm:text-xl font-bold text-[var(--text)] truncate">
+                  {week !== null ? weekLabel(sport, week, weekOptions.find((w) => w.week === week)?.first_kickoff ?? null) : "…"}
+                </span>
+                <span className="text-[11px] text-[var(--text-muted)] whitespace-nowrap">
+                  <span className="hidden sm:inline">{seasonLabel(sport, season)} · </span>
+                  {isCurrentWeek ? "current · " : ""}
+                  {pickedCount}/{weekGames.length} picked
+                </span>
+              </span>
+              <select
+                value={week ?? ""}
+                onChange={(e) => {
+                  setAutoWeek(false);
+                  setWeek(Number(e.target.value));
+                }}
+                className="absolute inset-0 opacity-0 cursor-pointer"
+                aria-label="Jump to week"
+              >
+                {weekOptions.map((w) => (
+                  <option key={w.week} value={w.week}>
+                    {weekLabel(sport, w.week, w.first_kickoff)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              onClick={() => stepWeek(1)}
+              disabled={weekIndex < 0 || weekIndex >= weekOptions.length - 1}
+              className="h-9 w-9 shrink-0 grid place-items-center rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--text)] disabled:opacity-40"
+              aria-label="Next week"
+            >
+              ›
+            </button>
+          </div>
 
-          <p className="hidden sm:block text-sm text-[var(--text-muted)]">
-            {isNba
-              ? "Pick whichever games you like. Only the games you pick count. ATS and totals are graded against the closing line, so your pick follows the current line."
-              : "Lock in your straight-up, ATS, and total picks before kickoff. ATS and totals are graded against the closing line, so your pick always follows the current line. Change it if you don't like where it moves."}
-          </p>
-        </div>
-        {currentSeason !== null && season !== null && (
-          <div className="flex gap-2 items-center flex-wrap">
-            {!isNba && <ModelToggle />}
+          <div className="flex items-center gap-2">
             <div role="tablist" aria-label="Pick style" className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--surface)] p-0.5">
               {(["list", "swipe"] as const).map((m) => (
                 <button
@@ -293,74 +350,93 @@ export function Picker() {
                 </button>
               ))}
             </div>
-            <button
-              onClick={() => setExportOpen(true)}
-              disabled={week === null}
-              className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] hover:border-[var(--accent)]/50 text-[var(--text)] font-semibold py-2 px-3.5 text-sm transition-colors disabled:opacity-60"
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
-              </svg>
-              Export
-            </button>
-            <select
-              value={season}
-              onChange={(e) => {
-                setAutoWeek(true);
-                setWeek(null);
-                setSeason(Number(e.target.value));
-              }}
-              className="input"
-            >
-              {(seasons.length ? seasons : [currentSeason]).map((s) => (
-                <option key={s} value={s}>
-                  {seasonLabel(sport, s)}
-                </option>
-              ))}
-            </select>
-            <select
-              value={week ?? ""}
-              onChange={(e) => {
-                setAutoWeek(false);
-                setWeek(Number(e.target.value));
-              }}
-              className="input"
-            >
-              {weekOptions.map((w) => (
-                <option key={w.week} value={w.week}>
-                  {weekLabel(sport, w.week, w.first_kickoff)}
-                </option>
-              ))}
-            </select>
-
-            {(!autoWeek || season !== currentSeason) && (
+            <div ref={menuRef} className="relative">
               <button
-                onClick={() => {
-                  setAutoWeek(true);
-                  if (season !== currentSeason) {
-                    setWeek(null);
-                    setSeason(currentSeason);
-                  } else if (weeksInfo?.current_week != null) {
-                    setWeek(weeksInfo.current_week);
-                  }
-                }}
-                className="text-xs font-medium text-[var(--accent)] hover:text-[var(--accent)]/80 px-2 py-1.5"
+                onClick={() => setMenuOpen((o) => !o)}
+                aria-haspopup="true"
+                aria-expanded={menuOpen}
+                aria-label="Picker options"
+                className={`h-9 w-9 grid place-items-center rounded-lg border bg-[var(--card)] text-[var(--text)] transition-colors ${menuOpen ? "border-[var(--accent)]" : "border-[var(--border)]"}`}
               >
-                ↻ Jump to current week
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <circle cx="5" cy="12" r="1.8" />
+                  <circle cx="12" cy="12" r="1.8" />
+                  <circle cx="19" cy="12" r="1.8" />
+                </svg>
               </button>
-            )}
+              {menuOpen && (
+                <div className="absolute right-0 mt-2 z-30 w-[min(18.5rem,88vw)] rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-xl p-3 flex flex-col gap-3">
+                  <label className="flex items-center justify-between gap-3 text-sm text-[var(--text)]">
+                    Season
+                    <select
+                      value={season}
+                      onChange={(e) => {
+                        setAutoWeek(true);
+                        setWeek(null);
+                        setSeason(Number(e.target.value));
+                      }}
+                      className="input"
+                    >
+                      {(seasons.length ? seasons : [currentSeason]).map((sv) => (
+                        <option key={sv} value={sv}>
+                          {seasonLabel(sport, sv)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {!isNba && (
+                    <div className="flex items-center justify-between gap-3 text-sm text-[var(--text)]">
+                      Show odds as
+                      <ViewToggle view={view} onChange={changeView} />
+                    </div>
+                  )}
+                  {!isNba && (
+                    <div className="flex items-center justify-between gap-3 text-sm text-[var(--text)]">
+                      Model suggestions
+                      <ModelToggle compact />
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-1.5 pt-1 border-t border-[var(--border)]">
+                    <button
+                      onClick={() => {
+                        setMenuOpen(false);
+                        setExportOpen(true);
+                      }}
+                      disabled={week === null}
+                      className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium text-[var(--text)] hover:bg-[var(--surface-hover)] disabled:opacity-60"
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
+                      </svg>
+                      Export picks as image
+                    </button>
+                    {(!autoWeek || season !== currentSeason) && (
+                      <button
+                        onClick={() => {
+                          setMenuOpen(false);
+                          setAutoWeek(true);
+                          if (season !== currentSeason) {
+                            setWeek(null);
+                            setSeason(currentSeason);
+                          } else if (weeksInfo?.current_week != null) {
+                            setWeek(weeksInfo.current_week);
+                          }
+                        }}
+                        className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium text-[var(--accent)] hover:bg-[var(--surface-hover)]"
+                      >
+                        ↻ Jump to current week
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {exportOpen && season !== null && week !== null && (
         <ExportModal season={season} week={week} sport={sport} day={isNba && day && day !== "all" ? day : null} onClose={() => setExportOpen(false)} />
-      )}
-
-      {!isNba && mode === "list" && (
-        <div className="mb-4">
-          <ViewToggle view={view} onChange={changeView} />
-        </div>
       )}
 
       {isNba && days.length > 0 && (

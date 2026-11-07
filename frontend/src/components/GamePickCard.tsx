@@ -63,9 +63,11 @@ export function GamePickCard({
       <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
         <span>{fmtKickoff(game.kickoff_time)}</span>
         <span className="flex items-center gap-3">
-          <span className={`uppercase tracking-wide ${locked ? "text-orange-400 font-semibold" : ""}`}>
-            {locked ? "🔒 Locked" : game.status.replace("_", " ")}
-          </span>
+          {(locked || game.status !== "scheduled") && (
+            <span className={`uppercase tracking-wide ${locked ? "text-orange-400 font-semibold" : ""}`}>
+              {locked ? "🔒 Locked" : game.status.replace("_", " ")}
+            </span>
+          )}
           {detailLink && (
             <Link to={`/games/${game.game_id}`} className="font-semibold text-[var(--accent)] hover:underline">
               Stats ›
@@ -80,13 +82,13 @@ export function GamePickCard({
           className="grid grid-cols-2 gap-2 -m-1 p-1 rounded-lg hover:bg-[var(--surface-hover)] transition-colors"
           title="View full game details"
         >
-          <TeamColumn team={game.away} score={game.final_away_score} record={recIn?.away_record} />
-          <TeamColumn team={game.home} score={game.final_home_score} record={recIn?.home_record} />
+          <TeamColumn team={game.away} score={game.status === "scheduled" ? null : game.final_away_score} record={recIn?.away_record} />
+          <TeamColumn team={game.home} score={game.status === "scheduled" ? null : game.final_home_score} record={recIn?.home_record} />
         </Link>
       ) : (
         <div className="grid grid-cols-2 gap-2">
-          <TeamColumn team={game.away} score={game.final_away_score} record={recIn?.away_record} />
-          <TeamColumn team={game.home} score={game.final_home_score} record={recIn?.home_record} />
+          <TeamColumn team={game.away} score={game.status === "scheduled" ? null : game.final_away_score} record={recIn?.away_record} />
+          <TeamColumn team={game.home} score={game.status === "scheduled" ? null : game.final_home_score} record={recIn?.home_record} />
         </div>
       )}
 
@@ -253,7 +255,7 @@ function LeanLine({
 }
 
 function TeamColumn({ team, score, record }: { team: Game["home"]; score: number | null; record?: TeamRecord }) {
-  const hasRecord = record && (record.wins || record.losses || record.ties);
+  const hasRecord = !!record && !!(record.wins || record.losses || record.ties);
   const nickname = team.name.split(" ").slice(-1)[0];
   return (
     <div className="flex flex-col items-center text-center gap-0.5">

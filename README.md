@@ -132,6 +132,8 @@ python -m scripts.train_total_model    # same, for the Over/Under model
 | `nba_stats.py` | Team box scores for finished NBA games (ESPN summary, one request per game, a few per run) into `nba_team_games`. Run as part of the `nba` job. |
 | `nba_espn.py` (backend) | Live, trimmed ESPN summary for an NBA game (venue, TV, officials, injuries, leaders, standings, ATS records, box score, odds detail). Fetched on request and cached in memory only — nothing is stored. Served by `/api/games/{id}/espn`. |
 | `model_stats.py` (backend) | The model's own track record on every game it called: grades each frozen call against the closing line (SU/ATS/total), then builds scorecard, baselines, trend, week by week, confidence calibration, splits, by-team, biggest hits/misses, and each person vs. the model and the group consensus. Reads the compact `model_calls` table (one row per frozen recommendation, written in `freeze_recommendation`). Served by `/api/model-stats`. |
+| `insights.py` (backend) | League-only stats: closing line value, rivalries (weeks won and head-to-head duels), who fades the room, lone-wolf wins, tail/fade units, per-person specialties, weeks beating the model, and the weekly recap. Served by `/api/insights/*`; the recap image is rendered by `week_export.render_recap_slides` (`/api/export/recap`). |
+| `routers/talk.py` | The locker room: short posts with emoji reactions (`trash_talk`, `trash_reactions`), 45s server cache, 5s post throttle. |
 | `espn_odds.py` | Polls ESPN's unofficial API for the current week's live odds, scores, and status; auto-grades picks on games going final. |
 | `backfill_historical.py` | One-time-per-range backfill of `games` (schedules, closing lines, results) from nflverse. |
 | `pbp_stats.py` | Aggregates nflverse play-by-play into team-week efficiency stats (EPA/play, success rate, yards/play, 3rd-down%, red-zone%, turnovers). |
@@ -184,6 +186,9 @@ python -m scripts.train_total_model    # same, for the Over/Under model
 | `pages/GameDetail.tsx` | One game's full stats, odds history, and picks. |
 | `pages/Record.tsx` | Anyone's record (pick the person and season, or all time). An ATS / Straight-up tab drives the whole page: scorecard (units at -110 for ATS, wins over .500 for SU), group rank, best and worst week, trend chart, season-by-season table, splits (favorites/underdogs, home/road, division, time slot, part of season, spread size) and a by-team grid. Names on the leaderboard link here. |
 | `components/TrendChart.tsx` | SVG line chart of cumulative units or rolling 25-pick ATS % with season markers and hover. |
+| `pages/League.tsx` | League page: weekly recap with share image, locker room, rivalries, closing line value, reading the room, tail/fade, specialties, beat the model. |
+| `components/SwipePicker.tsx` | Optional swipe-to-pick mode (List / Swipe toggle on the Picker): drag right for home/over, left for away/under, up to skip, with undo. |
+| `lib/ModelHintsContext.tsx` + `components/ModelToggle.tsx` | Global on/off switch (remembered per device) for the model's suggestions on the Picker, game view and Home. |
 | `pages/VsModel.tsx` | The Model page (Records-style): model scorecard per market, you and everyone vs. the model, trend, week by week, confidence calibration, splits, by team, biggest hits and misses, and the picks where someone split from it. |
 | `pages/Leaderboard.tsx` | Season / week standings toggle on top, then a week grid of every user's pick per game (ATS / SU / O/U tabs, colored by result) with an expandable game-by-game breakdown. |
 | `components/Avatar.tsx` | Round profile picture for a user, falling back to a colored initial. |

@@ -5,6 +5,8 @@ import { useSport } from "../lib/SportContext";
 import type { PickerView } from "../lib/kalshi";
 import { GamePickCard } from "../components/GamePickCard";
 import { ExportModal } from "../components/ExportModal";
+import { SwipePicker } from "../components/SwipePicker";
+import { ModelToggle } from "../components/ModelToggle";
 import { usePolling } from "../lib/usePolling";
 
 const EASTERN_DAY = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" });
@@ -82,6 +84,21 @@ export function Picker() {
   const [view, setView] = useState<PickerView>(storedView);
   const [kalshi, setKalshi] = useState<Record<string, KalshiGame>>({});
   const [exportOpen, setExportOpen] = useState(false);
+  const [mode, setModeState] = useState<"list" | "swipe">(() => {
+    try {
+      return localStorage.getItem("pickSixPickerMode") === "swipe" ? "swipe" : "list";
+    } catch {
+      return "list";
+    }
+  });
+  function setMode(next: "list" | "swipe") {
+    setModeState(next);
+    try {
+      localStorage.setItem("pickSixPickerMode", next);
+    } catch {
+      /* ignore */
+    }
+  }
   const gamesRef = useRef<Game[]>([]);
   useEffect(() => {
     gamesRef.current = games;
@@ -262,6 +279,20 @@ export function Picker() {
         </div>
         {currentSeason !== null && season !== null && (
           <div className="flex gap-2 items-center flex-wrap">
+            {!isNba && <ModelToggle />}
+            <div role="tablist" aria-label="Pick style" className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--surface)] p-0.5">
+              {(["list", "swipe"] as const).map((m) => (
+                <button
+                  key={m}
+                  role="tab"
+                  aria-selected={mode === m}
+                  onClick={() => setMode(m)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold capitalize transition-colors ${mode === m ? "bg-[var(--accent)] text-[var(--accent-text)]" : "text-[var(--text-muted)]"}`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
             <button
               onClick={() => setExportOpen(true)}
               disabled={week === null}
@@ -326,7 +357,7 @@ export function Picker() {
         <ExportModal season={season} week={week} sport={sport} day={isNba && day && day !== "all" ? day : null} onClose={() => setExportOpen(false)} />
       )}
 
-      {!isNba && (
+      {!isNba && mode === "list" && (
         <div className="mb-4">
           <ViewToggle view={view} onChange={changeView} />
         </div>
@@ -369,7 +400,11 @@ export function Picker() {
         <div className="text-[var(--text-muted)] text-sm">{isNba ? "No NBA games scheduled for this day." : "No games found for this week yet — run the odds poller to pull the latest slate."}</div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5 sm:gap-4">
+      {mode === "swipe" && !loading && weekGames.length > 0 && (
+        <SwipePicker games={weekGames} picks={picks} recs={recs} isNba={isNba} onPickMade={refreshPicks} onExit={() => setMode("list")} />
+      )}
+
+      <div className={`grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5 sm:gap-4 ${mode === "swipe" ? "hidden" : ""}`}>
         {weekGames.map((g) => (
           <GamePickCard
             key={g.game_id}

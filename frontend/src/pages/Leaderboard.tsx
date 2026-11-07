@@ -181,7 +181,7 @@ export function LeaderboardPage() {
         </div>
         {view === "season" && !standings && <div className="text-sm text-[var(--text-muted)]">Loading…</div>}
         {view === "season" && standings && standings.entries.length === 0 && <EmptyNote text="No picks this season yet." />}
-        {view === "season" && standings && standings.entries.length > 0 && <StandingsTable entries={standings.entries} />}
+        {view === "season" && standings && standings.entries.length > 0 && <StandingsTable entries={standings.entries} model={standings.model} />}
         {view === "week" && !board && <div className="text-sm text-[var(--text-muted)]">Loading…</div>}
         {view === "week" && board && board.users.length === 0 && <EmptyNote text="Nobody has picked this season yet." />}
         {view === "week" && board && board.users.length > 0 && <WeekStandingsTable board={board} />}
@@ -245,7 +245,40 @@ function AwardCell({ award, good }: { award: WeekAward | null; good: boolean }) 
 
 const YOU_TINT = "linear-gradient(color-mix(in srgb, var(--accent) 7%, transparent), color-mix(in srgb, var(--accent) 7%, transparent))";
 
-function StandingsTable({ entries }: { entries: StandingsEntry[] }) {
+type ModelRec = { straight_up: PickRecord; ats: PickRecord; total: PickRecord };
+
+function ModelRow({ model, extra }: { model: ModelRec; extra: number }) {
+  const cell = (r: PickRecord, accent = false) => (
+    <td className="px-4 py-3 text-center tabular-nums border-l border-[var(--border)]">
+      <span className="block font-semibold text-[var(--text)]">{fmtRecord(r)}</span>
+      <span className={`block text-[11px] ${accent ? "font-semibold text-[var(--accent)]" : "text-[var(--text-faint)]"}`}>{fmtPct(r.win_pct)}</span>
+    </td>
+  );
+  return (
+    <tr className="bg-[var(--surface)]/60">
+      <td className="sticky left-0 z-10 bg-[var(--surface)] px-4 py-3 font-medium text-[var(--text)]">
+        <span className="flex items-center gap-2.5">
+          <span className="w-4 text-center">🤖</span>
+          <span className="grid place-items-center w-7 h-7 rounded-full bg-[var(--accent)]/15 text-sm">🤖</span>
+          <Link to="/vs-model" className="hover:text-[var(--accent)] transition-colors">The Model</Link>
+          <span className="text-[10px] uppercase tracking-wide text-[var(--text-faint)]">unranked</span>
+        </span>
+      </td>
+      {cell(model.straight_up)}
+      {cell(model.ats, true)}
+      {cell(model.total)}
+      <td colSpan={extra} className="border-l border-[var(--border)]" />
+    </tr>
+  );
+}
+
+function modelIndex(pcts: (number | null)[], model: ModelRec) {
+  const m = model.ats.win_pct ?? -1;
+  const i = pcts.findIndex((p) => (p ?? -1) < m);
+  return i === -1 ? pcts.length : i;
+}
+
+function StandingsTable({ entries, model }: { entries: StandingsEntry[]; model: ModelRec | null }) {
   return (
     <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm overflow-x-auto">
       <table className="w-full min-w-[720px] text-sm">
@@ -262,7 +295,12 @@ function StandingsTable({ entries }: { entries: StandingsEntry[] }) {
           </tr>
         </thead>
         <tbody className="divide-y divide-[var(--border)] whitespace-nowrap">
-          {entries.map((e) => {
+          {(() => {
+            const list: (StandingsEntry | "model")[] = [...entries];
+            if (model) list.splice(modelIndex(entries.map((x) => x.ats.win_pct), model), 0, "model");
+            return list;
+          })().map((e) => {
+            if (e === "model") return <ModelRow key="model" model={model!} extra={4} />;
             const tint = e.is_you ? { backgroundImage: YOU_TINT } : undefined;
             return (
               <tr key={e.user_id}>
@@ -308,6 +346,7 @@ function StandingsTable({ entries }: { entries: StandingsEntry[] }) {
 }
 
 function WeekStandingsTable({ board }: { board: WeekBoard }) {
+  const model = board.model;
   const rows = board.users
     .map((u) => ({ user: u, rec: board.records[String(u.user_id)] }))
     .sort((a, b) => {
@@ -319,6 +358,7 @@ function WeekStandingsTable({ board }: { board: WeekBoard }) {
       return db - da;
     });
   const top = rows[0]?.rec?.ats.win_pct ?? null;
+  const ranked = rows.map((r, idx) => ({ ...r, rank: idx + 1 }));
 
   return (
     <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm overflow-x-auto">
@@ -333,14 +373,20 @@ function WeekStandingsTable({ board }: { board: WeekBoard }) {
           </tr>
         </thead>
         <tbody className="divide-y divide-[var(--border)] whitespace-nowrap">
-          {rows.map(({ user, rec }, i) => {
+          {(() => {
+            const list: ((typeof ranked)[number] | "model")[] = [...ranked];
+            if (model) list.splice(modelIndex(rows.map((r) => r.rec?.ats.win_pct ?? null), model), 0, "model");
+            return list;
+          })().map((item) => {
+            if (item === "model") return <ModelRow key="model" model={model!} extra={1} />;
+            const { user, rec, rank } = item;
             const tint = user.is_you ? { backgroundImage: YOU_TINT } : undefined;
             const leader = top !== null && rec?.ats.win_pct === top;
             return (
               <tr key={user.user_id}>
                 <td style={tint} className="sticky left-0 z-10 bg-[var(--card)] px-4 py-3 font-medium text-[var(--text)]">
                   <span className="flex items-center gap-2.5">
-                    <span className={`font-display font-bold w-4 text-center ${RANK_STYLES[i + 1] ?? "text-[var(--text-faint)]"}`}>{i + 1}</span>
+                    <span className={`font-display font-bold w-4 text-center ${RANK_STYLES[rank] ?? "text-[var(--text-faint)]"}`}>{rank}</span>
                     <Avatar userId={user.user_id} version={user.avatar_version} name={user.display_name} size={28} />
                     <Link to={`/record?user=${user.user_id}`} className="hover:text-[var(--accent)] transition-colors" title="See their full record">
                       {user.display_name}

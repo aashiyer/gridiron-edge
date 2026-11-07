@@ -7,7 +7,7 @@ import type {
   ExportSlide,
   RecordsResponse,
   WeeksResponse,
-  GameDetail, NbaEspn, ModelStats,
+  GameDetail, NbaEspn, ModelStats, LeagueStats, Recap, TalkPost,
   TeamMeta,
   VsModelSummary,
   StandingsResponse,
@@ -171,6 +171,15 @@ export const api = {
 
   dashboard: (params: { season?: number } = {}) =>
     req<DashboardSummary>(`/dashboard?sport=${activeSport}${params.season ? `&season=${params.season}` : ""}`),
+  league: (season?: number) =>
+    req<LeagueStats>(`/insights/league?sport=${activeSport}${season ? `&season=${season}` : ""}`),
+  recap: (season: number, week: number) => req<Recap>(`/insights/recap?season=${season}&week=${week}&sport=${activeSport}`),
+  exportRecap: (season: number, week: number) => req<{ slides: ExportSlide[] }>(`/export/recap?season=${season}&week=${week}&sport=${activeSport}`),
+  talk: () => req<TalkPost[]>(`/talk?sport=${activeSport}`),
+  postTalk: (body: string, season: number | null, week: number | null) =>
+    req<{ ok: boolean }>(`/talk`, { method: "POST", body: JSON.stringify({ body, sport: activeSport, season, week }) }),
+  deleteTalk: (id: number) => req<{ ok: boolean }>(`/talk/${id}`, { method: "DELETE" }),
+  reactTalk: (id: number, emoji: string) => req<{ ok: boolean }>(`/talk/${id}/react`, { method: "POST", body: JSON.stringify({ emoji }) }),
   modelStats: (params: { season?: number; user_id?: number }) => {
     const qs = new URLSearchParams();
     if (params.season) qs.set("season", String(params.season));

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
+import { useModelHints } from "../lib/ModelHintsContext";
 import { useAuth } from "../lib/AuthContext";
 import type { Game, DashboardSummary, VsModelSummary, Recommendation, Record as PickRecord } from "../lib/types";
 import { TeamLogo } from "../components/TeamBadge";
@@ -33,6 +34,7 @@ function countdown(iso: string | null): string | null {
 
 function HomeNfl() {
   const { user } = useAuth();
+  const { show: showModel } = useModelHints();
   const [games, setGames] = useState<Game[]>([]);
   const [dashboard, setDashboard] = useState<DashboardSummary | null>(null);
   const [vsModel, setVsModel] = useState<VsModelSummary | null>(null);
@@ -117,7 +119,7 @@ function HomeNfl() {
 
           <div className="text-center text-sm text-[var(--text-muted)] mb-5">{fmtKickoff(nextGame.kickoff_time)}</div>
 
-          {nextRec && (
+          {nextRec && showModel && (
             <div className="flex flex-wrap items-center justify-center gap-3">
               <EdgeBadge label="Straight Up" team={nextRec.lean_straight_up} />
               <EdgeBadge label="ATS" team={nextRec.lean_ats} />

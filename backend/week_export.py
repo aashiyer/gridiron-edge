@@ -278,3 +278,82 @@ def render_week_slides(season: int, week: int, user_ids: list | None = None, spo
             slides.append({"filename": f"picksix_{sport}_{day or 'week' + str(week)}_slide{i}.png", "image": "data:image/png;base64," + base64.b64encode(png).decode()})
         doc.close()
     return slides
+
+
+def _to_pngs(html: str, prefix: str) -> list:
+    from weasyprint import HTML
+    import pymupdf
+
+    with _RENDER_LOCK:
+        pdf = HTML(string=html).write_pdf()
+        doc = pymupdf.open(stream=pdf, filetype="pdf")
+        slides = []
+        for i, page in enumerate(doc, start=1):
+            png = page.get_pixmap(dpi=96).tobytes("png")
+            slides.append({"filename": f"{prefix}_slide{i}.png", "image": "data:image/png;base64," + base64.b64encode(png).decode()})
+        doc.close()
+    return slides
+
+
+def render_recap_slides(season: int, week: int, sport: str = "nfl") -> list:
+    """One shareable slide: who won the week, how everyone finished, and the
+    moments worth talking about."""
+    from html import escape
+
+    from backend.insights import recap
+
+    with db_session() as conn:
+        r = recap(conn, sport, season, week)
+    if not r:
+        return []
+    people = r["people"][:MAX_PEOPLE + 2]
+    avatars = _avatar_uris(people)
+    winners = r["winners"]
+    win_names = " & ".join(escape(w["display_name"]) for w in winners)
+
+    banner = ""
+    if winners:
+        w0 = winners[0]
+        crown = f' · {r["winner_streak"] + 1} weeks running' if r["winner_streak"] else ""
+        banner = (
+            f'<div class="rc-win"><img class="bigav" src="{avatars[w0["user_id"]]}"><div><div class="rc-k">WEEK WINNER{crown}</div>'
+            f'<div class="rc-n">{win_names}</div><div class="rc-s">{_fmt_rec(w0["ats"])} ATS · {_pct(w0["ats"])}</div></div></div>'
+        )
+    rows = ""
+    for p in people:
+        rows += (
+            f'<div class="rc-row"><img src="{avatars[p["user_id"]]}"><span class="rc-name">{escape(p["display_name"])}</span>'
+            f'<span class="rc-stat"><b>{_fmt_rec(p["ats"])}</b> ATS <i>{_pct(p["ats"])}</i></span>'
+            f'<span class="rc-stat"><b>{_fmt_rec(p["su"])}</b> SU <i>{_pct(p["su"])}</i></span></div>'
+        )
+    notes = []
+    if r["upset"]:
+        u = r["upset"]
+        notes.append(f'<b>Upset call:</b> {escape(" & ".join(u["users"]))} hit {escape(u["team"])} (+{u["line"]:g}) in {escape(u["matchup"])}')
+    for w in r["lone_wolves"][:2]:
+        notes.append(f'<b>Lone wolf:</b> {escape(w["name"])} was the only one on {escape(w["team"])} ({escape(w["matchup"])}) and cashed it')
+    if r["model"] and r["model"]["ats"]["win_pct"] is not None:
+        m = r["model"]
+        beat = ", ".join(escape(n) for n in m["beat_by"]) or "nobody"
+        notes.append(f'<b>The model:</b> {_fmt_rec(m["ats"])} ATS ({_pct(m["ats"])}). Beat it: {beat}')
+    if r["worst"]:
+        notes.append(f'<b>Rough week:</b> {escape(r["worst"]["display_name"])} at {_fmt_rec(r["worst"]["ats"])} ATS')
+    top = " · ".join(f'{escape(t["display_name"])} {_pct(t["ats"])}' for t in r["season_top"])
+    sport_label = "NBA" if sport == "nba" else "NFL"
+    extra_css = """
+.rc h1 { font-size: 100px; line-height: 1; letter-spacing: -3px; margin: 18px 0 8px; font-weight: 900 }
+.rc-win { display: flex; align-items: center; gap: 30px; background: linear-gradient(135deg, #1b2440, #151a24); border: 2px solid #3a4a86; border-radius: 30px; padding: 20px 34px; margin: 20px 0 18px }
+.rc-k { font-size: 17px; font-weight: 800; letter-spacing: 3.5px; color: #6f8cff } .rc-n { font-size: 56px; font-weight: 900; margin: 4px 0 2px } .rc-s { font-size: 24px; color: #8d93a5 }
+.rc-row { display: flex; align-items: center; gap: 22px; background: #151a24; border: 1px solid #232a38; border-radius: 22px; padding: 11px 26px; margin-bottom: 10px }
+.rc-row img { width: 62px; height: 62px; border-radius: 50%; border: 3px solid #2a3142 } .rc-name { font-size: 32px; font-weight: 800; flex: 1 }
+.rc-stat { font-size: 20px; color: #8d93a5; width: 250px; text-align: right } .rc-stat b { font-size: 30px; color: #e8eaf0 } .rc-stat i { font-style: normal; margin-left: 8px }
+.rc-notes { margin-top: 18px; margin-bottom: 70px; border-left: 6px solid #6f8cff; padding-left: 24px } .rc-notes div { font-size: 21px; color: #c3c8d6; margin-bottom: 9px; line-height: 1.35 } .rc-notes b { color: #e8eaf0 }
+.rc-foot { position: absolute; bottom: 46px; left: 56px; font-size: 21px; color: #8d93a5 }
+"""
+    html = (
+        f'<!doctype html><html><head><meta charset="utf-8"><style>{_css(len(people))}{extra_css}</style></head><body>'
+        f'<section class="slide rc"><div class="brand">PICK<em>SIX</em></div><h1>WEEK {week} RECAP</h1><div class="sub">{sport_label} · {season}</div>'
+        f'{banner}{rows}<div class="rc-notes">{"".join(f"<div>{n}</div>" for n in notes[:4])}</div>'
+        f'<div class="rc-foot">Season ATS leaders: {top}</div></section></body></html>'
+    )
+    return _to_pngs(html, f"picksix_{sport}_week{week}_recap")

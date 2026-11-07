@@ -18,7 +18,7 @@ function dayText(day: string): string {
   return new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 }
 
-async function saveToPhone(slides: ExportSlide[]) {
+export async function saveToPhone(slides: ExportSlide[]) {
   try {
     const files = await Promise.all(
       slides.map(async (s) => new File([await (await fetch(s.image)).blob()], s.filename, { type: "image/png" }))

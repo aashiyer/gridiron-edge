@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 
 from backend.auth import get_current_user
 from backend.sports import normalize_sport
-from backend.week_export import render_week_slides
+from backend.week_export import render_recap_slides, render_week_slides
 
 router = APIRouter(prefix="/api/export", tags=["export"])
 
@@ -21,3 +21,8 @@ def export_week(
     wanted = [int(x) for x in user_ids.split(",") if x.strip().isdigit()] if user_ids else None
     return {"slides": render_week_slides(season, week, wanted, normalize_sport(sport), day)}
 
+
+
+@router.get("/recap")
+def export_recap(season: int, week: int, sport: str = "nfl", _user: dict = Depends(get_current_user)):
+    return {"slides": render_recap_slides(season, week, normalize_sport(sport))}

@@ -201,11 +201,21 @@ def standings(season: int, current_user: dict = Depends(get_current_user), sport
         picks = _season_picks(conn, season, sport)
         weeks = _week_status(conn, season, sport)
     current_week = next((w["week"] for w in weeks if not w["complete"]), weeks[-1]["week"] if weeks else None)
+    model = None
+    if sport == "nfl":
+        from backend.model_stats import model_report
+
+        with db_session() as conn:
+            rep = model_report(conn, 0, season)
+        sc = rep["scorecard"]
+        if rep["games_called"]:
+            model = {"straight_up": sc["su"]["record"], "ats": sc["ats"]["record"], "total": sc["total"]["record"], "games_called": rep["games_called"]}
     return {
         "season": season,
         "weeks": weeks,
         "current_week": current_week,
         "entries": _standings_entries(picks, weeks, current_user["user_id"], sport),
+        "model": model,
     }
 
 
@@ -264,6 +274,15 @@ def week_board(season: int, week: int, current_user: dict = Depends(get_current_
         {"user_id": u, "display_name": names[u], "avatar_version": versions[u], "is_you": u == current_user["user_id"]}
         for u in sorted(order, key=lambda u: order[u])
     ]
+    model = None
+    if sport == "nfl":
+        from backend.model_stats import model_report
+
+        with db_session() as conn:
+            rep = model_report(conn, 0, season)
+        mw = next((w for w in rep["weeks"] if w["week"] == week), None)
+        if mw:
+            model = {"straight_up": mw["su"], "ats": mw["ats"], "total": mw["total"]}
     return {
         "season": season,
         "week": week,
@@ -272,4 +291,5 @@ def week_board(season: int, week: int, current_user: dict = Depends(get_current_
         "games": games,
         "picks": picks_by_game,
         "records": records,
+        "model": model,
     }

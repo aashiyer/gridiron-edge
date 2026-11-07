@@ -9,6 +9,7 @@ import { RecordPage } from "./pages/Record";
 import { GamesPage } from "./pages/Games";
 import { GameDetailPage } from "./pages/GameDetail";
 import { VsModelPage } from "./pages/VsModel";
+import { LeaguePage } from "./pages/League";
 import { LeaderboardPage } from "./pages/Leaderboard";
 import { PowerRankingsPage } from "./pages/PowerRankings";
 import { LoginPage } from "./pages/Login";
@@ -33,6 +34,7 @@ export default function App() {
           <Route path="/record" element={<ProtectedRoute><RecordPage /></ProtectedRoute>} />
           <Route path="/games" element={<ProtectedRoute><GamesPage /></ProtectedRoute>} />
           <Route path="/games/:gameId" element={<ProtectedRoute><GameDetailPage /></ProtectedRoute>} />
+          <Route path="/league" element={<ProtectedRoute><LeaguePage /></ProtectedRoute>} />
           <Route path="/vs-model" element={<ProtectedRoute><VsModelPage /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
           {user?.is_admin && (

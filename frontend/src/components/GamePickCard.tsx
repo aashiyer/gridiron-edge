@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import type { Game, KalshiGame, Pick, Recommendation, TeamRecord } from "../lib/types";
 import { atsProbs, fmtPct, totalProbs, type PickerView } from "../lib/kalshi";
 import { TeamLogo } from "./TeamBadge";
+import { useModelHints } from "../lib/ModelHintsContext";
 import { usePickToggle } from "../lib/usePickToggle";
 
 export function fmtSpread(n: number | null) {
@@ -19,7 +20,7 @@ function fmtKickoff(iso: string | null) {
 export function GamePickCard({
   game,
   existingPicks,
-  rec,
+  rec: recIn,
   loadingRec,
   onPickMade,
   view = "spread",
@@ -36,6 +37,8 @@ export function GamePickCard({
   detailLink?: boolean;
 }) {
   const { selectionFor, togglePick, locked, error } = usePickToggle(game, existingPicks, onPickMade);
+  const { show: showModel } = useModelHints();
+  const rec = showModel ? recIn : null;
 
   const spread = game.current_spread ?? game.home_spread_close;
   const total = game.current_total ?? game.total_close;
@@ -77,13 +80,13 @@ export function GamePickCard({
           className="grid grid-cols-2 gap-2 -m-1 p-1 rounded-lg hover:bg-[var(--surface-hover)] transition-colors"
           title="View full game details"
         >
-          <TeamColumn team={game.away} score={game.final_away_score} record={rec?.away_record} />
-          <TeamColumn team={game.home} score={game.final_home_score} record={rec?.home_record} />
+          <TeamColumn team={game.away} score={game.final_away_score} record={recIn?.away_record} />
+          <TeamColumn team={game.home} score={game.final_home_score} record={recIn?.home_record} />
         </Link>
       ) : (
         <div className="grid grid-cols-2 gap-2">
-          <TeamColumn team={game.away} score={game.final_away_score} record={rec?.away_record} />
-          <TeamColumn team={game.home} score={game.final_home_score} record={rec?.home_record} />
+          <TeamColumn team={game.away} score={game.final_away_score} record={recIn?.away_record} />
+          <TeamColumn team={game.home} score={game.final_home_score} record={recIn?.home_record} />
         </div>
       )}
 
@@ -171,7 +174,7 @@ export function GamePickCard({
       {error && <div className="text-xs text-[var(--destructive)]">{error}</div>}
 
 
-      {(loadingRec || rec) && (
+      {showModel && (loadingRec || rec) && (
       <div className="rounded-xl bg-gradient-to-br from-[var(--accent)]/[0.08] to-[var(--accent)]/[0.05] border border-[var(--accent)]/15 p-2 sm:p-3">
         {loadingRec && <div className="text-xs text-[var(--text-muted)] animate-pulse">Analyzing historical trends…</div>}
         {rec && !loadingRec && (

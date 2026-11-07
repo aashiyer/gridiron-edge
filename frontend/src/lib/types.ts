@@ -146,6 +146,7 @@ export interface StandingsResponse {
   weeks: { week: number; games: number; complete: boolean }[];
   current_week: number | null;
   entries: StandingsEntry[];
+  model: { straight_up: Record; ats: Record; total: Record; games_called?: number } | null;
 }
 
 export interface WeekBoard {
@@ -158,6 +159,7 @@ export interface WeekBoard {
   records: {
     [userId: string]: { straight_up: Record; ats: Record; total: Record; games_picked: number };
   };
+  model: { straight_up: Record; ats: Record; total: Record } | null;
 }
 
 export interface VsModelSummary {
@@ -528,4 +530,41 @@ export interface ModelStats {
   you: number;
   user_id: number;
   team_meta: { [team: string]: TeamMeta };
+}
+
+export interface Person { user_id: number; display_name: string; avatar_version: number }
+export interface ClvMarket { n: number; avg: number; beat_pct: number; worse_pct: number; win_pct: number | null; units: number }
+export interface DuelRecent { game_id: string; season: number; week: number; market: string; matchup: string; a_pick: string; b_pick: string; winner: "a" | "b" }
+export interface RivalrySlot { weeks: { a: number; b: number; t: number }; duels: { ats: { a: number; b: number }; straight_up: { a: number; b: number } } }
+export interface Rivalry extends RivalrySlot { a: number; b: number; by_season: (RivalrySlot & { season: number })[]; recent: DuelRecent[] }
+export interface LeagueStats {
+  sport: string;
+  season: number | null;
+  seasons: number[];
+  people: Person[];
+  clv: { seasons: number[]; people: (Person & { ats: ClvMarket | null; total: ClvMarket | null; avg_hours_early: number | null; last_minute_pct: number | null })[] };
+  crowd: {
+    people: (Person & { markets: { [m: string]: { n: number; fade_pct: number | null; fade_record: Record; follow_record: Record } }; lone_wolf: Record })[];
+    lone_wolf_recent: { user_id: number; game_id: string; season: number; week: number; market: string; selection: string; matchup: string }[];
+  };
+  tail: (Person & { n: number; tail_units: number; fade_units: number; ats: Record })[];
+  specialties: (Person & { best: { group: string; label: string; record: Record; n: number }; worst: { group: string; label: string; record: Record; n: number } })[];
+  rivalries: Rivalry[];
+  model: { su: Record; ats: Record; total: Record; ats_units: number | null; games_called: number } | null;
+  weeks_vs_model: (Person & { beat: number; lost: number; tied: number })[];
+}
+export interface Recap {
+  sport: string; season: number; week: number; complete: boolean;
+  people: (Person & { ats: Record; su: Record; total: Record })[];
+  winners: (Person & { ats: Record; su: Record })[];
+  winner_streak: number;
+  worst: (Person & { ats: Record }) | null;
+  upset: { line: number; team: string; matchup: string; users: string[] } | null;
+  lone_wolves: { name: string; team: string; matchup: string; market: string }[];
+  model: { su: Record; ats: Record; total: Record; beat_by: string[] } | null;
+  season_top: (Person & { ats: Record })[];
+}
+export interface TalkPost {
+  id: number; user_id: number; body: string; season: number | null; week: number | null; created_at: string;
+  display_name: string; avatar_version: number; reactions: { [emoji: string]: number[] };
 }

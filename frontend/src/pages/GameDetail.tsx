@@ -6,6 +6,7 @@ import { TeamLogo } from "../components/TeamBadge";
 import { PickRow, PickButton } from "../components/GamePickCard";
 import { LineMovementChart } from "../components/LineMovementChart";
 import { usePickToggle } from "../lib/usePickToggle";
+import { useModelHints } from "../lib/ModelHintsContext";
 
 function fmtKickoff(iso: string | null) {
   if (!iso) return "TBD";
@@ -95,6 +96,7 @@ export function GameDetailPage() {
     );
   }
 
+  const { show: showEdge } = useModelHints();
   const rec = detail.recommendation;
   const isFinal = detail.status === "final";
   const lastOdds = detail.odds_history[detail.odds_history.length - 1];
@@ -144,7 +146,7 @@ export function GameDetailPage() {
         </div>
       </div>
 
-      <MakePickSection detail={detail} rec={rec} picks={picks} onPickMade={reloadPicks} />
+      <MakePickSection detail={detail} rec={rec} showEdge={showEdge} picks={picks} onPickMade={reloadPicks} />
 
       {detail.odds_history.length > 0 && <OddsHistorySection history={detail.odds_history} homeTeam={detail.home_team} />}
 
@@ -152,7 +154,7 @@ export function GameDetailPage() {
 
       {detail.matchup && espn && <NbaEspnSection detail={detail} espn={espn} />}
 
-      {rec && !rec.error && <EdgeSection rec={rec} />}
+      {showEdge && rec && !rec.error && <EdgeSection rec={rec} />}
 
       {rec && !rec.error && (rec.home_qb_status || rec.away_qb_status) && (
         <QbStatusSection homeTeam={detail.home} awayTeam={detail.away} home={rec.home_qb_status} away={rec.away_qb_status} />
@@ -183,11 +185,13 @@ export function GameDetailPage() {
 function MakePickSection({
   detail,
   rec,
+  showEdge,
   picks,
   onPickMade,
 }: {
   detail: GameDetailType;
   rec: GameDetailType["recommendation"];
+  showEdge: boolean;
   picks: Pick[];
   onPickMade: () => void;
 }) {
@@ -208,7 +212,7 @@ function MakePickSection({
         <PickRow label="Straight Up" shortLabel="SU">
           <PickButton
             active={selectionFor("straight_up") === detail.away_team}
-            edge={rec?.lean_straight_up === detail.away_team}
+            edge={showEdge && rec?.lean_straight_up === detail.away_team}
             disabled={locked}
             color={detail.away.color}
             secondary={detail.away.secondary}
@@ -218,7 +222,7 @@ function MakePickSection({
           </PickButton>
           <PickButton
             active={selectionFor("straight_up") === detail.home_team}
-            edge={rec?.lean_straight_up === detail.home_team}
+            edge={showEdge && rec?.lean_straight_up === detail.home_team}
             disabled={locked}
             color={detail.home.color}
             secondary={detail.home.secondary}
@@ -231,7 +235,7 @@ function MakePickSection({
         <PickRow label="Against the Spread" shortLabel="ATS">
           <PickButton
             active={selectionFor("ats") === detail.away_team}
-            edge={rec?.lean_ats === detail.away_team}
+            edge={showEdge && rec?.lean_ats === detail.away_team}
             disabled={locked || spread === null}
             color={detail.away.color}
             secondary={detail.away.secondary}
@@ -241,7 +245,7 @@ function MakePickSection({
           </PickButton>
           <PickButton
             active={selectionFor("ats") === detail.home_team}
-            edge={rec?.lean_ats === detail.home_team}
+            edge={showEdge && rec?.lean_ats === detail.home_team}
             disabled={locked || spread === null}
             color={detail.home.color}
             secondary={detail.home.secondary}
@@ -254,7 +258,7 @@ function MakePickSection({
         <PickRow label="Total" shortLabel="O/U">
           <PickButton
             active={selectionFor("total") === "over"}
-            edge={rec?.lean_total === "over"}
+            edge={showEdge && rec?.lean_total === "over"}
             disabled={locked || total === null}
             onClick={() => togglePick("total", "over", total)}
           >
@@ -262,7 +266,7 @@ function MakePickSection({
           </PickButton>
           <PickButton
             active={selectionFor("total") === "under"}
-            edge={rec?.lean_total === "under"}
+            edge={showEdge && rec?.lean_total === "under"}
             disabled={locked || total === null}
             onClick={() => togglePick("total", "under", total)}
           >

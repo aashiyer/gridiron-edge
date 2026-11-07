@@ -6,6 +6,7 @@ import App from './App.tsx'
 import { AuthProvider } from './lib/AuthContext.tsx'
 import { ThemeProvider } from './lib/ThemeContext.tsx'
 import { SportProvider } from './lib/SportContext.tsx'
+import { ModelHintsProvider } from './lib/ModelHintsContext.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -13,7 +14,9 @@ createRoot(document.getElementById('root')!).render(
       <ThemeProvider>
         <AuthProvider>
           <SportProvider>
+          <ModelHintsProvider>
             <App />
+          </ModelHintsProvider>
           </SportProvider>
         </AuthProvider>
       </ThemeProvider>

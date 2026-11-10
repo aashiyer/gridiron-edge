@@ -14,6 +14,10 @@ function ordinal(n: number) {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
+const ADV: Record<string, string> = { passing: "adv_pass", rushing: "adv_rush", receiving: "adv_rec" };
+const isAdv = (v: string) => v.startsWith("adv_");
+const base = (v: string) => Object.keys(ADV).find((k) => ADV[k] === v) ?? v;
+
 function PlayersTab({ sport }: { sport: "nfl" | "nba" }) {
   const navigate = useNavigate();
   const [view, setView] = useState<string>("");
@@ -57,7 +61,25 @@ function PlayersTab({ sport }: { sport: "nfl" | "nba" }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {data && sport === "nfl" && <TextTabs value={data.view} options={data.views.map((v) => ({ id: v.id, label: v.label }))} onChange={(v) => setView(v)} />}
+      {data && sport === "nfl" && (
+        <div className="flex flex-col gap-3">
+          <TextTabs
+            value={base(data.view)}
+            options={data.views.filter((v) => !v.id.startsWith("adv_")).map((v) => ({ id: v.id, label: v.label }))}
+            onChange={(v) => setView(isAdv(data.view) && ADV[v] ? ADV[v] : v)}
+          />
+          {ADV[base(data.view)] && (
+            <TextTabs
+              value={isAdv(data.view) ? "adv" : "std"}
+              options={[
+                { id: "std", label: "Standard" },
+                { id: "adv", label: "Advanced" },
+              ]}
+              onChange={(m) => setView(m === "adv" ? ADV[base(data.view)] : base(data.view))}
+            />
+          )}
+        </div>
+      )}
       {data && sport === "nba" && <TextTabs value={data.view} options={data.views.map((v) => ({ id: v.id, label: v.label }))} onChange={(v) => setView(v)} />}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search player or team" className="input w-full sm:w-64" aria-label="Search players" />

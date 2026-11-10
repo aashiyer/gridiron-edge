@@ -56,7 +56,7 @@ export function GamePickCard({
 
   return (
     <div
-      className={`rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm p-3 sm:p-4 flex flex-col gap-2.5 sm:gap-4 ${
+      className={`rounded-xl border border-[var(--border)] bg-[var(--card)] p-3 sm:p-4 flex flex-col gap-2.5 sm:gap-3.5 ${
         locked ? "opacity-90" : ""
       }`}
     >
@@ -64,12 +64,10 @@ export function GamePickCard({
         <span>{fmtKickoff(game.kickoff_time)}</span>
         <span className="flex items-center gap-3">
           {(locked || game.status !== "scheduled") && (
-            <span className={`uppercase tracking-wide ${locked ? "text-orange-400 font-semibold" : ""}`}>
-              {locked ? "🔒 Locked" : game.status.replace("_", " ")}
-            </span>
+            <span className="uppercase tracking-[0.14em] text-[10px] text-[var(--text-faint)]">{locked ? "Locked" : game.status.replace("_", " ")}</span>
           )}
           {detailLink && (
-            <Link to={`/live/${game.game_id}`} className="font-semibold text-[var(--accent)] hover:underline">
+            <Link to={`/live/${game.game_id}`} className="text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
               Stats ›
             </Link>
           )}
@@ -177,14 +175,12 @@ export function GamePickCard({
 
 
       {showModel && (loadingRec || rec) && (
-      <div className="rounded-xl bg-gradient-to-br from-[var(--accent)]/[0.08] to-[var(--accent)]/[0.05] border border-[var(--accent)]/15 p-2 sm:p-3">
+      <div className="border-t border-[var(--border)] pt-2.5">
         {loadingRec && <div className="text-xs text-[var(--text-muted)] animate-pulse">Analyzing historical trends…</div>}
         {rec && !loadingRec && (
           <>
             <div className="flex items-center gap-x-3 gap-y-1 flex-wrap sm:block">
-              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-[var(--accent)] sm:mb-1 sm:block">
-                ⬥ Edge
-              </span>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)] sm:mb-1 sm:block">Model</span>
               <div className="flex items-center gap-x-3 gap-y-0.5 flex-wrap sm:flex-col sm:items-stretch sm:gap-0.5 sm:mb-2">
                 <LeanLine label="Straight Up" shortLabel="SU" team={rec.lean_straight_up} confidence={rec.confidence_straight_up} />
                 <LeanLine label="ATS" shortLabel="ATS" team={rec.lean_ats} confidence={rec.confidence_ats} />
@@ -202,11 +198,11 @@ export function GamePickCard({
               </div>
             </div>
             <details className="group mt-1 sm:mt-0">
-              <summary className="text-[11px] sm:text-xs text-[var(--accent)]/90 cursor-pointer select-none list-none flex items-center gap-1 hover:text-[var(--accent)]">
+              <summary className="text-[11px] sm:text-xs text-[var(--text-muted)] cursor-pointer select-none list-none flex items-center gap-1 hover:text-[var(--text)]">
                 <span className="inline-block transition-transform group-open:rotate-90">▸</span>
                 Why? ({rec.reasons.length} factors)
               </summary>
-              <ul className="text-xs text-[var(--text-muted)] leading-relaxed space-y-1 list-disc list-inside marker:text-[var(--accent)]/60 mt-2">
+              <ul className="text-xs text-[var(--text-muted)] leading-relaxed space-y-1 list-disc list-inside marker:text-[var(--text-faint)] mt-2">
                 {rec.reasons.map((r, i) => (
                   <li key={i} className={r.highlight ? "font-semibold text-[var(--text)]" : undefined}>
                     {r.text}
@@ -258,8 +254,8 @@ function TeamColumn({ team, score, record }: { team: Game["home"]; score: number
   const hasRecord = !!record && !!(record.wins || record.losses || record.ties);
   const nickname = team.name.split(" ").slice(-1)[0];
   return (
-    <div className="flex flex-col items-center text-center gap-0.5">
-      <TeamLogo team={team} size={44} className="w-9 h-9 sm:w-11 sm:h-11" />
+    <div className="flex flex-row sm:flex-col items-center justify-center sm:text-center gap-2 sm:gap-0.5">
+      <TeamLogo team={team} size={44} className="w-7 h-7 sm:w-11 sm:h-11" />
       <div className="font-display font-bold text-sm sm:text-base text-[var(--text)] leading-tight">{nickname}</div>
       {score !== null && <div className="text-sm text-[var(--text-muted)] tabular-nums">{score}</div>}
       {hasRecord && (
@@ -276,7 +272,7 @@ function TeamColumn({ team, score, record }: { team: Game["home"]; score: number
 function Cell({ main, sub }: { main: string; sub?: string }) {
   return (
     <span className="flex flex-col items-center justify-center leading-tight py-0.5">
-      <span className="text-base font-semibold tabular-nums">{main}</span>
+      <span className="text-sm sm:text-base font-semibold tabular-nums">{main}</span>
       {sub && <span className="text-[10px] font-medium opacity-70 tabular-nums">{sub}</span>}
     </span>
   );

@@ -29,7 +29,7 @@ export default function App() {
       <TeamAccentSync />
       <Sidebar />
 
-      <div className={user ? "md:pl-56 pb-16 md:pb-0" : ""}>
+      <div className={user ? "md:pl-56 pb-20 md:pb-0" : ""}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />

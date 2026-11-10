@@ -124,3 +124,9 @@ a:focus-visible,
   background: var(--border);
   border-radius: 6px;
 }
+
+/* Flat surfaces: hairline borders carry the structure, not drop shadows. */
+.shadow-sm,
+.shadow-xs {
+  box-shadow: none;
+}

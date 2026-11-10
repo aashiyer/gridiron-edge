@@ -21,15 +21,15 @@ export function SportToggle({ compact = false }: { compact?: boolean }) {
   }
 
   return (
-    <div role="tablist" aria-label="Sport" className={`inline-flex rounded-lg border border-[var(--border)] bg-[var(--surface)] p-0.5 ${compact ? "" : "w-full"}`}>
+    <div role="tablist" aria-label="Sport" className={compact ? "inline-flex gap-5" : "grid grid-cols-2 border-b border-[var(--border)]"}>
       {OPTIONS.map((o) => (
         <button
           key={o.value}
           role="tab"
           aria-selected={sport === o.value}
           onClick={() => choose(o.value)}
-          className={`${compact ? "px-2.5 py-1 text-xs" : "flex-1 py-1.5 text-sm"} rounded-md font-bold tracking-wide transition-colors ${
-            sport === o.value ? "bg-[var(--accent)] text-[var(--accent-text)] shadow-sm" : "text-[var(--text-muted)] hover:text-[var(--text)]"
+          className={`-mb-px text-left text-[11px] font-semibold uppercase tracking-[0.16em] border-b-2 transition-colors ${compact ? "py-1" : "pb-2"} ${
+            sport === o.value ? "border-[var(--text)] text-[var(--text)]" : "border-transparent text-[var(--text-faint)] hover:text-[var(--text-muted)]"
           }`}
         >
           {o.label}

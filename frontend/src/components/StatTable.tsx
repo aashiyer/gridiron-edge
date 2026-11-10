@@ -8,6 +8,8 @@ export interface StatCol<T> {
   render?: (row: T, decimals: number) => React.ReactNode;
   /** true when a lower number is the better one, so the first sort is ascending */
   lowerBetter?: boolean;
+  /** fixed decimal places; otherwise inferred from the data */
+  dec?: number;
 }
 
 export function fmtStat(n: number | null | undefined): string {
@@ -49,6 +51,10 @@ export function StatTable<T>({
   const decimals = useMemo(() => {
     const out: { [k: string]: number } = {};
     columns.forEach((c) => {
+      if (c.dec !== undefined) {
+        out[c.key] = c.dec;
+        return;
+      }
       out[c.key] = rows.some((r) => {
         const v = c.value(r);
         return typeof v === "number" && !Number.isInteger(v);

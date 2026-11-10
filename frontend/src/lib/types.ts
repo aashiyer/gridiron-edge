@@ -599,11 +599,11 @@ export interface LiveGameDetail {
   tv: string[]; picks: LivePick[];
 }
 
-export interface StatColumn { key: string; label: string; desc: string }
+export interface StatColumn { key: string; label: string; desc: string; dec?: number }
 export interface StatPlayerRow { id: string; name: string; pos: string | null; team: string; age: number | null; headshot: string | null; v: (number | null)[] }
 export interface PlayerStatsResponse {
   sport: string; season: number; seasons: { year: number; label: string }[]; view: string; views: { id: string; label: string }[];
-  columns: StatColumn[]; rows: StatPlayerRow[]; sort: string; qualified: boolean; count: number | null;
+  columns: StatColumn[]; rows: StatPlayerRow[]; sort: string; qualified: boolean; count: number | null; linkable: boolean;
 }
 export interface TeamStatColumn extends StatColumn { lower: boolean; ranks: { [abbr: string]: number } }
 export interface TeamStatsResponse {

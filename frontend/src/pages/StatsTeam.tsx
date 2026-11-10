@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../lib/api";
 import type { PlayerStatsResponse, TeamStatsResponse } from "../lib/types";
-import { fmtStat } from "../components/StatTable";
+import { fmtFixed, fmtStat } from "../components/StatTable";
 
 function ordinal(n: number) {
   const s = ["th", "st", "nd", "rd"];
@@ -48,7 +48,7 @@ export function StatsTeamPage() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         {teams.views.map((view) => (
           <section key={view.id}>
             <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-faint)]">{view.label}</h2>
@@ -61,7 +61,7 @@ export function StatsTeamPage() {
                     <div className="flex items-baseline justify-between text-[13px] tabular-nums">
                       <span className="text-[var(--text-muted)]">{c.desc.replace(/ per game$/i, "")}</span>
                       <span>
-                        <span className="text-[var(--text)] font-medium">{fmtStat(team.v[c.key])}</span>
+                        <span className="text-[var(--text)] font-medium">{c.dec !== undefined ? fmtFixed(team.v[c.key], c.dec) : fmtStat(team.v[c.key])}</span>
                         {rank && <span className="ml-2 text-[11px] text-[var(--text-faint)]">{ordinal(rank)}</span>}
                       </span>
                     </div>

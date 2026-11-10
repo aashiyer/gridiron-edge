@@ -46,7 +46,7 @@ function PlayersTab({ sport }: { sport: "nfl" | "nba" }) {
   }, [sport, view, season, qualified]);
 
   const columns = useMemo<StatCol<StatPlayerRow>[]>(
-    () => (data ? data.columns.map((c, i) => ({ key: c.key, label: c.label, desc: c.desc, value: (r) => r.v[i] })) : []),
+    () => (data ? data.columns.map((c, i) => ({ key: c.key, label: c.label, desc: c.desc, dec: c.dec, value: (r) => r.v[i] })) : []),
     [data]
   );
   const rows = useMemo(() => {
@@ -85,7 +85,7 @@ function PlayersTab({ sport }: { sport: "nfl" | "nba" }) {
           columns={columns}
           ranked
           rowKey={(r) => r.id}
-          onRow={(r) => navigate(`/stats/player/${sport}/${r.id}`)}
+          onRow={data.linkable ? (r) => navigate(`/stats/player/${sport}/${r.id}`) : undefined}
           initialSort={{ key: data.sort, dir: "desc" }}
           leadLabel="Player"
           lead={(r) => (
@@ -131,6 +131,7 @@ function TeamsTab({ sport }: { sport: "nfl" | "nba" }) {
             label: c.label,
             desc: c.desc,
             lowerBetter: c.lower,
+            dec: c.dec,
             value: (t) => t.v[c.key] ?? null,
             render: (t, d) => (
               <span>

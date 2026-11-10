@@ -403,7 +403,7 @@ function RivalrySection({ data, byId }: { data: LeagueStats; byId: Map<number, P
               {current.recent.map((d) => (
                 <Link
                   key={d.game_id + d.market}
-                  to={`/games/${d.game_id}`}
+                  to={`/live/${d.game_id}`}
                   className="flex flex-wrap items-center justify-between gap-2 text-sm rounded-lg px-2 py-1.5 hover:bg-[var(--surface-hover)] transition-colors"
                 >
                   <span className="text-[var(--text-muted)]">
@@ -552,7 +552,7 @@ function RoomSection({ data }: { data: LeagueStats }) {
           <div className="text-xs font-semibold uppercase tracking-widest text-[var(--text-faint)] mb-2">Latest lone-wolf wins</div>
           <div className="flex flex-col gap-1.5">
             {data.crowd.lone_wolf_recent.map((w) => (
-              <Link key={w.game_id + w.user_id + w.market} to={`/games/${w.game_id}`} className="text-sm text-[var(--text-muted)] hover:text-[var(--text)]">
+              <Link key={w.game_id + w.user_id + w.market} to={`/live/${w.game_id}`} className="text-sm text-[var(--text-muted)] hover:text-[var(--text)]">
                 <b className="text-[var(--text)]">{byId.get(w.user_id)?.display_name}</b> was alone on {w.selection} ({w.matchup}, W{w.week}) and cashed it
               </Link>
             ))}

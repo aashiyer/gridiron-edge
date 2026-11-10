@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../lib/api";
 import type { GameDetail as GameDetailType, NbaEspn, EspnPlayer, NbaMatchup, NbaTeamMatchup, Pick, TeamMeta, TeamForm, TeamEfficiency, DepthChart, DepthChartEntry, QbStatus } from "../lib/types";
 import { TeamLogo } from "../components/TeamBadge";
@@ -7,20 +6,6 @@ import { PickRow, PickButton } from "../components/GamePickCard";
 import { LineMovementChart } from "../components/LineMovementChart";
 import { usePickToggle } from "../lib/usePickToggle";
 import { useModelHints } from "../lib/ModelHintsContext";
-
-function fmtKickoff(iso: string | null) {
-  if (!iso) return "TBD";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return iso;
-  return d.toLocaleString(undefined, {
-    weekday: "long",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    timeZoneName: "short",
-  });
-}
 
 function fmtSigned(n: number | null | undefined, digits = 1) {
   if (n === null || n === undefined) return "—";
@@ -45,121 +30,83 @@ function sortedPositions(chart: DepthChart): string[] {
   return [...known, ...rest];
 }
 
-export function GameDetailPage() {
-  const { gameId } = useParams<{ gameId: string }>();
+export interface GameDetailState {
+  detail: GameDetailType | null;
+  picks: Pick[];
+  espn: NbaEspn | null;
+  error: boolean;
+  reloadPicks: () => Promise<void>;
+}
+
+/** Loads the matchup data behind a game (lines, analysis, your picks). Only fetches once `enabled`
+ *  flips on, so opening a game just to watch it costs the database nothing extra. */
+export function useGameDetail(gameId: string | undefined, enabled: boolean): GameDetailState {
   const [detail, setDetail] = useState<GameDetailType | null>(null);
   const [error, setError] = useState(false);
   const [picks, setPicks] = useState<Pick[]>([]);
   const [espn, setEspn] = useState<NbaEspn | null>(null);
 
   useEffect(() => {
+    setDetail(null);
     setEspn(null);
-    if (gameId?.startsWith("nba-")) api.gameEspn(gameId).then(setEspn).catch(() => {});
+    setPicks([]);
+    setError(false);
   }, [gameId]);
 
   useEffect(() => {
-    if (!gameId) return;
-    setDetail(null);
-    setError(false);
+    if (!gameId || !enabled || detail) return;
     api
       .gameDetail(gameId)
       .then((d) => ("error" in d && d.error ? setError(true) : setDetail(d)))
       .catch(() => setError(true));
-  }, [gameId]);
+    if (gameId.startsWith("nba-")) api.gameEspn(gameId).then(setEspn).catch(() => {});
+  }, [gameId, enabled, detail]);
 
-  async function reloadPicks() {
+  const reloadPicks = useCallback(async () => {
     if (!detail) return;
-    setPicks(await api.picks({ season: detail.season, week: detail.week }));
-  }
+    setPicks(await api.picks({ season: detail.season, week: detail.week, sport: detail.game_id.startsWith("nba-") ? "nba" : "nfl" }));
+  }, [detail]);
+
   useEffect(() => {
     reloadPicks();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detail?.game_id]);
+  }, [reloadPicks]);
 
-  if (error) {
-    return (
-      <div className="max-w-5xl mx-auto px-4 py-8">
-        <BackLink />
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm p-8 text-center text-[var(--text-muted)] text-sm mt-4">
-          Couldn't find that game.
-        </div>
-      </div>
-    );
-  }
+  return { detail, picks, espn, error, reloadPicks };
+}
 
-  if (!detail) {
-    return (
-      <div className="max-w-5xl mx-auto px-4 py-8">
-        <BackLink />
-        <div className="text-[var(--text-muted)] text-sm mt-4">Loading…</div>
-      </div>
-    );
-  }
-
-  const { show: showEdge } = useModelHints();
-  const rec = detail.recommendation;
-  const isFinal = detail.status === "final";
-  const lastOdds = detail.odds_history[detail.odds_history.length - 1];
-  const line = rec?.current_line ?? detail.home_spread_close ?? lastOdds?.home_spread ?? null;
-  const total = rec?.current_total ?? detail.total_close ?? lastOdds?.total ?? null;
-
+export function PanelLoading({ state }: { state: GameDetailState }) {
   return (
-    <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-8 flex flex-col gap-6">
-      <BackLink />
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm p-6 text-center text-sm text-[var(--text-muted)]">
+      {state.error ? "Couldn't load this game's matchup data." : "Loading…"}
+    </div>
+  );
+}
 
+export function MakePickPanel({ state }: { state: GameDetailState }) {
+  const { show: showEdge } = useModelHints();
+  if (!state.detail) return <PanelLoading state={state} />;
+  return <MakePickSection detail={state.detail} rec={state.detail.recommendation} showEdge={showEdge} picks={state.picks} onPickMade={state.reloadPicks} />;
+}
 
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm p-4 sm:p-6">
-        <div className="flex items-center justify-between text-xs text-[var(--text-muted)] mb-4">
-          <span>
-            {detail.matchup ? `${detail.season}-${String(detail.season + 1).slice(2)} Season` : `${detail.season} Season`} · Week {detail.week}
-            {detail.game_type && detail.game_type !== "REG" ? ` · ${detail.game_type}` : ""}
-          </span>
-          <span className={`uppercase tracking-wide font-semibold ${isFinal ? "text-[var(--text-faint)]" : "text-emerald-400"}`}>
-            {isFinal ? "Final" : detail.status.replace("_", " ")}
-          </span>
-        </div>
+export function LineMovementPanel({ state }: { state: GameDetailState }) {
+  const d = state.detail;
+  if (!d || d.odds_history.length === 0) return null;
+  return <OddsHistorySection history={d.odds_history} homeTeam={d.home_team} />;
+}
 
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 sm:gap-6">
-          <TeamScoreColumn team={detail.away} score={detail.final_away_score} align="left" />
-          <div className="text-[var(--text-faint)] text-sm font-medium">@</div>
-          <TeamScoreColumn team={detail.home} score={detail.final_home_score} align="right" />
-        </div>
-
-        <div className="text-center text-sm text-[var(--text-muted)] mt-4">{fmtKickoff(detail.kickoff_time)}</div>
-        {detail.stadium && (
-          <div className="text-center text-xs text-[var(--text-faint)] mt-1">
-            {detail.stadium}
-            {detail.roof === "dome" ? " (dome)" : detail.temp !== null ? ` · ${Math.round(detail.temp)}°F` : ""}
-            {detail.wind !== null && detail.roof !== "dome" ? `, ${Math.round(detail.wind)} mph wind` : ""}
-          </div>
-        )}
-
-        <div className="flex items-center justify-center gap-3 mt-4 flex-wrap">
-          <LinePill label="Spread" value={line !== null ? `${detail.home_team} ${fmtSpread(line)}` : "—"} />
-          <LinePill label="Total" value={total !== null ? `${total}` : "—"} />
-          {detail.home_ml_close !== null && detail.away_ml_close !== null && (
-            <LinePill
-              label="Moneyline"
-              value={`${detail.away_team} ${fmtSpread(detail.away_ml_close)} / ${detail.home_team} ${fmtSpread(detail.home_ml_close)}`}
-            />
-          )}
-        </div>
-      </div>
-
-      <MakePickSection detail={detail} rec={rec} showEdge={showEdge} picks={picks} onPickMade={reloadPicks} />
-
-      {detail.odds_history.length > 0 && <OddsHistorySection history={detail.odds_history} homeTeam={detail.home_team} />}
-
+export function MatchupPanel({ state }: { state: GameDetailState }) {
+  const { show: showEdge } = useModelHints();
+  const { detail, espn } = state;
+  if (!detail) return <PanelLoading state={state} />;
+  const rec = detail.recommendation;
+  return (
+    <div className="flex flex-col gap-6">
       {detail.matchup && <NbaMatchupSection detail={detail} matchup={detail.matchup} />}
-
       {detail.matchup && espn && <NbaEspnSection detail={detail} espn={espn} />}
-
       {showEdge && rec && !rec.error && <EdgeSection rec={rec} />}
-
       {rec && !rec.error && (rec.home_qb_status || rec.away_qb_status) && (
         <QbStatusSection homeTeam={detail.home} awayTeam={detail.away} home={rec.home_qb_status} away={rec.away_qb_status} />
       )}
-
       {rec && !rec.error && (
         <TeamStatsSection
           homeTeam={detail.home}
@@ -174,10 +121,7 @@ export function GameDetailPage() {
           awayGei={rec.away_gei}
         />
       )}
-
-      {!detail.matchup && (
-        <DepthChartSection homeTeam={detail.home} awayTeam={detail.away} home={detail.home_depth_chart} away={detail.away_depth_chart} />
-      )}
+      {!detail.matchup && <DepthChartSection homeTeam={detail.home} awayTeam={detail.away} home={detail.home_depth_chart} away={detail.away_depth_chart} />}
     </div>
   );
 }
@@ -276,41 +220,6 @@ function MakePickSection({
       </div>
       {error && <div className="text-xs text-[var(--destructive)] mt-2">{error}</div>}
     </section>
-  );
-}
-
-function BackLink() {
-  const navigate = useNavigate();
-  const canGoBack = typeof window !== "undefined" && (window.history.state?.idx ?? 0) > 0;
-  return (
-    <button
-      onClick={() => (canGoBack ? navigate(-1) : navigate("/live"))}
-      className="text-sm font-medium text-[var(--text-muted)] hover:text-[var(--text)] transition-colors inline-flex items-center gap-1"
-    >
-      ← Back
-    </button>
-  );
-}
-
-function TeamScoreColumn({ team, score, align }: { team: TeamMeta; score: number | null; align: "left" | "right" }) {
-  return (
-    <div className={`flex items-center gap-3 ${align === "right" ? "flex-row-reverse text-right" : ""}`}>
-      <TeamLogo team={team} size={64} className="w-12 h-12 sm:w-16 sm:h-16 shrink-0" />
-      <div>
-        <div className="font-display font-bold text-lg sm:text-xl text-[var(--text)]">{team.abbr}</div>
-        <div className="text-xs text-[var(--text-faint)] hidden sm:block">{team.name}</div>
-        {score !== null && <div className="font-display text-2xl sm:text-3xl font-bold text-[var(--text)] mt-1">{score}</div>}
-      </div>
-    </div>
-  );
-}
-
-function LinePill({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="text-xs bg-[var(--surface)] border border-[var(--border)] rounded-full px-3 py-1.5">
-      <span className="text-[var(--text-faint)]">{label}: </span>
-      <span className="text-[var(--text)] font-medium">{value}</span>
-    </div>
   );
 }
 

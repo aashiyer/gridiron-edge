@@ -97,7 +97,7 @@ function HomeNfl() {
 
       {nextGame ? (
         <Link
-          to={`/games/${nextGame.game_id}`}
+          to={`/live/${nextGame.game_id}`}
           className="block rounded-2xl border border-[var(--accent)]/20 bg-gradient-to-br from-[var(--accent)]/[0.07] via-transparent to-[var(--accent)]/[0.08] shadow-sm p-6 md:p-8 hover:border-[var(--accent)]/40 transition-colors"
         >
           <div className="flex items-center justify-between mb-6">
@@ -207,7 +207,7 @@ function HomeNfl() {
             {thisWeek.map((g) => (
               <Link
                 key={g.game_id}
-                to={`/games/${g.game_id}`}
+                to={`/live/${g.game_id}`}
                 className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 hover:border-[var(--accent)]/30 hover:bg-[var(--surface-hover)] transition-colors"
               >
                 <TeamLogo team={g.away} size={22} />
@@ -288,7 +288,7 @@ function HomeNba() {
 
       {favorite && favoriteGame && (
         <Link
-          to={`/games/${favoriteGame.game_id}`}
+          to={`/live/${favoriteGame.game_id}`}
           className="block rounded-2xl border border-[var(--accent)]/20 bg-gradient-to-br from-[var(--accent)]/[0.07] via-transparent to-[var(--accent)]/[0.08] shadow-sm p-6 md:p-8 hover:border-[var(--accent)]/40 transition-colors"
         >
           <div className="flex items-center justify-between mb-6">

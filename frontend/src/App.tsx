@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useParams } from "react-router-dom";
 import { useAuth } from "./lib/AuthContext";
 import { Sidebar } from "./components/Sidebar";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -6,7 +6,6 @@ import { TeamAccentSync } from "./components/TeamAccentSync";
 import { Home } from "./pages/Home";
 import { Picker } from "./pages/Picker";
 import { RecordPage } from "./pages/Record";
-import { GameDetailPage } from "./pages/GameDetail";
 import { VsModelPage } from "./pages/VsModel";
 import { LeaguePage } from "./pages/League";
 import { LivePage } from "./pages/Live";
@@ -16,6 +15,11 @@ import { PowerRankingsPage } from "./pages/PowerRankings";
 import { LoginPage } from "./pages/Login";
 import { SettingsPage } from "./pages/Settings";
 import { AdminUsersPage } from "./pages/AdminUsers";
+
+function RedirectToLive() {
+  const { gameId } = useParams<{ gameId: string }>();
+  return <Navigate to={`/live/${gameId}`} replace />;
+}
 
 export default function App() {
   const { user } = useAuth();
@@ -34,7 +38,7 @@ export default function App() {
           <Route path="/power-rankings" element={<ProtectedRoute><PowerRankingsPage /></ProtectedRoute>} />
           <Route path="/record" element={<ProtectedRoute><RecordPage /></ProtectedRoute>} />
           <Route path="/games" element={<Navigate to="/live" replace />} />
-          <Route path="/games/:gameId" element={<ProtectedRoute><GameDetailPage /></ProtectedRoute>} />
+          <Route path="/games/:gameId" element={<ProtectedRoute><RedirectToLive /></ProtectedRoute>} />
           <Route path="/live" element={<ProtectedRoute><LivePage /></ProtectedRoute>} />
           <Route path="/live/:gameId" element={<ProtectedRoute><LiveGamePage /></ProtectedRoute>} />
           <Route path="/league" element={<ProtectedRoute><LeaguePage /></ProtectedRoute>} />

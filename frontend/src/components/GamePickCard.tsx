@@ -69,7 +69,7 @@ export function GamePickCard({
             </span>
           )}
           {detailLink && (
-            <Link to={`/games/${game.game_id}`} className="font-semibold text-[var(--accent)] hover:underline">
+            <Link to={`/live/${game.game_id}`} className="font-semibold text-[var(--accent)] hover:underline">
               Stats ›
             </Link>
           )}
@@ -78,7 +78,7 @@ export function GamePickCard({
 
       {detailLink ? (
         <Link
-          to={`/games/${game.game_id}`}
+          to={`/live/${game.game_id}`}
           className="grid grid-cols-2 gap-2 -m-1 p-1 rounded-lg hover:bg-[var(--surface-hover)] transition-colors"
           title="View full game details"
         >

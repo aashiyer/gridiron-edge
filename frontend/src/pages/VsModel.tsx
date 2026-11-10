@@ -69,7 +69,7 @@ function PickLabel({ pick, data }: { pick: string; data: ModelStats }) {
 
 function CallRow({ c, data }: { c: ModelCall; data: ModelStats }) {
   return (
-    <Link to={`/games/${c.game_id}`} className="flex items-center justify-between gap-2 py-2 text-sm hover:bg-[var(--surface-hover)] rounded-lg px-2 -mx-2 transition-colors">
+    <Link to={`/live/${c.game_id}`} className="flex items-center justify-between gap-2 py-2 text-sm hover:bg-[var(--surface-hover)] rounded-lg px-2 -mx-2 transition-colors">
       <span className="flex items-center gap-2 min-w-0">
         <span className={`font-semibold uppercase text-xs w-8 ${RESULT_TONE[c.result]}`}>{c.result === "win" ? "Hit" : "Miss"}</span>
         <span className="text-[var(--text)] truncate">
@@ -506,7 +506,7 @@ export function VsModelPage() {
           </SectionTitle>
           <div className="flex flex-col gap-2">
             {disagreements.map((d) => (
-              <Link key={d.game_id + d.market} to={`/games/${d.game_id}`} className="block rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-sm px-4 py-3 hover:border-[var(--accent)]/40 transition-colors">
+              <Link key={d.game_id + d.market} to={`/live/${d.game_id}`} className="block rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-sm px-4 py-3 hover:border-[var(--accent)]/40 transition-colors">
                 <div className="flex items-center justify-between text-xs text-[var(--text-faint)] mb-2">
                   <span>
                     {d.matchup} · S{d.season} W{d.week}

@@ -183,11 +183,11 @@ python -m scripts.train_total_model    # same, for the Over/Under model
 | `components/icons.tsx` | Hand-written SVG icon set (avoids an icon-library dependency). |
 | `pages/Home.tsx` | Landing page — next game, this week's slate, SU/ATS/O-U record summary. |
 | `pages/Picker.tsx` | Make picks for a given week; polls for recommendation-cache warmup on cold games. |
-| `pages/GameDetail.tsx` | One game's full stats, odds history, and picks. |
+| `pages/GameDetail.tsx` | No longer a page: the matchup data behind a game (`useGameDetail`), exported as panels the live game view shows as its Picks and Matchup tabs (make your pick, line movement, edge, QB status, team stats, depth chart, NBA matchup and ESPN extras). Fetched only when one of those tabs is opened. `/games/:id` redirects to `/live/:id`. |
 | `pages/Record.tsx` | Anyone's record (pick the person and season, or all time). An ATS / Straight-up tab drives the whole page: scorecard (units at -110 for ATS, wins over .500 for SU), group rank, best and worst week, trend chart, season-by-season table, splits (favorites/underdogs, home/road, division, time slot, part of season, spread size) and a by-team grid. Names on the leaderboard link here. |
 | `components/TrendChart.tsx` | SVG line chart of cumulative units or rolling 25-pick ATS % with season markers and hover. |
 | `pages/Live.tsx` | Live scoreboard (NFL by week, NBA by day) with your picks and who is covering right now. Polls every 15s while games are live, 60s otherwise, only while the tab is visible. |
-| `pages/LiveGame.tsx` | Live game view: score, win probability, everyone's picks with live status, play-by-play (incremental), team stats, leaders, scoring summary, NBA box score. |
+| `pages/LiveGame.tsx` | Live game view with tabs: Picks (make your pick, everyone's live pick status, line movement), Plays (incremental play-by-play), Stats (live team stats, leaders, scoring summary), Matchup (season context from GameDetail), Box score (NBA). Opens on Picks before the game and Plays once it starts. |
 | `pages/League.tsx` | League page: weekly recap with share image, locker room, rivalries, closing line value, reading the room, tail/fade, specialties, beat the model. |
 | `components/SwipePicker.tsx` | Optional swipe-to-pick mode (List / Swipe toggle on the Picker): drag right for home/over, left for away/under, up to skip, with undo. |
 | `lib/ModelHintsContext.tsx` + `components/ModelToggle.tsx` | Global on/off switch (remembered per device) for the model's suggestions on the Picker, game view and Home. |

@@ -7,8 +7,9 @@ import type { LiveGameDetail, LivePick, LivePlay } from "../lib/types";
 import { Avatar } from "../components/Avatar";
 import { TeamLogo } from "../components/TeamBadge";
 import { LivePill, PickChip, statusText } from "../components/LiveBits";
+import { LineMovementPanel, MakePickPanel, MatchupPanel, useGameDetail } from "./GameDetail";
 
-type Tab = "plays" | "stats" | "box";
+type Tab = "plays" | "picks" | "stats" | "matchup" | "box";
 
 function WinProb({ series, homeColor, awayAbbr, homeAbbr }: { series: number[]; homeColor: string; awayAbbr: string; homeAbbr: string }) {
   if (series.length < 3) return null;
@@ -79,7 +80,7 @@ export function LiveGamePage() {
   const [data, setData] = useState<LiveGameDetail | null>(null);
   const [plays, setPlays] = useState<LivePlay[]>([]);
   const [error, setError] = useState(false);
-  const [tab, setTab] = useState<Tab>("plays");
+  const [tab, setTab] = useState<Tab | null>(null);
   const [scoringOnly, setScoringOnly] = useState(false);
   const lastSeq = useRef<number | undefined>(undefined);
   const requestId = useRef(0);
@@ -113,6 +114,8 @@ export function LiveGamePage() {
   }, [gameId]);
 
   const live = data?.state === "in";
+  const activeTab: Tab = tab ?? (data?.state === "pre" ? "picks" : "plays");
+  const detailState = useGameDetail(gameId, activeTab === "picks" || activeTab === "matchup");
   usePolling(load, live ? 8000 : 60000, data?.state !== "post");
 
   const feed = useMemo(() => {
@@ -128,7 +131,7 @@ export function LiveGamePage() {
   const hs = data.home.score;
   const as = data.away.score;
   const leading = hs !== null && as !== null ? (hs > as ? "home" : as > hs ? "away" : null) : null;
-  const tabs: [Tab, string][] = [["plays", "Plays"], ["stats", "Stats"]];
+  const tabs: [Tab, string][] = [["picks", "Picks"], ["plays", "Plays"], ["stats", "Stats"], ["matchup", "Matchup"]];
   if (sport === "nba" && Object.keys(data.box).length) tabs.push(["box", "Box score"]);
 
   const side = (t: typeof home, score: number | null, key: "home" | "away") => (
@@ -146,7 +149,6 @@ export function LiveGamePage() {
     <div className="max-w-3xl mx-auto px-3 sm:px-4 py-4 sm:py-6 flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <Link to="/live" className="text-sm text-[var(--text-muted)] hover:text-[var(--text)]">← Live</Link>
-        <Link to={`/games/${data.game_id}`} className="text-sm font-medium text-[var(--accent)]">Matchup stats ›</Link>
       </div>
 
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm p-4 sm:p-5 flex flex-col gap-4">
@@ -168,23 +170,31 @@ export function LiveGamePage() {
         <WinProb series={data.winprob} homeColor={home.color} awayAbbr={away.abbr} homeAbbr={home.abbr} />
       </section>
 
-      <PicksCard picks={data.picks} />
-
-      <div role="tablist" className="inline-flex self-start rounded-xl border border-[var(--border)] bg-[var(--surface)] p-0.5">
+      <div role="tablist" className="inline-flex self-start max-w-full overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] p-0.5">
         {tabs.map(([t, label]) => (
           <button
             key={t}
             role="tab"
-            aria-selected={tab === t}
+            aria-selected={activeTab === t}
             onClick={() => setTab(t)}
-            className={`px-4 py-1.5 rounded-[10px] text-sm font-medium transition-colors ${tab === t ? "bg-[var(--accent)] text-[var(--accent-text)] shadow-sm" : "text-[var(--text-muted)] hover:text-[var(--text)]"}`}
+            className={`px-3.5 py-1.5 rounded-[10px] text-sm font-medium transition-colors ${activeTab === t ? "bg-[var(--accent)] text-[var(--accent-text)] shadow-sm" : "text-[var(--text-muted)] hover:text-[var(--text)]"}`}
           >
             {label}
           </button>
         ))}
       </div>
 
-      {tab === "plays" && (
+      {activeTab === "picks" && (
+        <div className="flex flex-col gap-4">
+          <MakePickPanel state={detailState} />
+          <PicksCard picks={data.picks} />
+          <LineMovementPanel state={detailState} />
+        </div>
+      )}
+
+      {activeTab === "matchup" && <MatchupPanel state={detailState} />}
+
+      {activeTab === "plays" && (
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-[var(--border)]">
             <span className="text-xs font-bold uppercase tracking-widest text-[var(--text-muted)]">Play by play</span>
@@ -236,7 +246,7 @@ export function LiveGamePage() {
         </section>
       )}
 
-      {tab === "stats" && (
+      {activeTab === "stats" && (
         <div className="flex flex-col gap-4">
           {data.team_stats.length > 0 ? (
             <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm overflow-hidden">
@@ -300,7 +310,7 @@ export function LiveGamePage() {
         </div>
       )}
 
-      {tab === "box" &&
+      {activeTab === "box" &&
         [away, home].map((t) => {
           const b = data.box[t.abbr];
           if (!b) return null;

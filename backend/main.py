@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
 from backend.database import init_db
-from backend.routers import games, picks, dashboard, teams, auth, tick, admin, kalshi, leaderboard, avatars, export, records, model_stats, insights, talk, live
+from backend.routers import games, picks, dashboard, teams, auth, tick, admin, kalshi, leaderboard, avatars, export, records, model_stats, insights, talk, live, stats
 
 app = FastAPI(title="NFL Betting Tracker API")
 
@@ -36,6 +36,7 @@ app.include_router(model_stats.router)
 app.include_router(insights.router)
 app.include_router(talk.router)
 app.include_router(live.router)
+app.include_router(stats.router)
 
 
 @app.on_event("startup")

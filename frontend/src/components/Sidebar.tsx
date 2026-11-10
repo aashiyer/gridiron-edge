@@ -14,6 +14,7 @@ const baseTabs = [
   { to: "/leaderboard", label: "Leaderboard", icon: TrophyIcon, group: "Standings" },
   { to: "/league", label: "League", icon: TrophyIcon, group: "Standings" },
   { to: "/record", label: "Record", icon: ChartIcon, group: "Standings" },
+  { to: "/stats", label: "Stats", icon: ChartIcon, group: "Analysis" },
   { to: "/power-rankings", label: "Power Rankings", icon: RankIcon, group: "Analysis" },
   { to: "/vs-model", label: "Model", icon: ScaleIcon, group: "Analysis" },
 ];

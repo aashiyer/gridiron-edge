@@ -598,3 +598,23 @@ export interface LiveGameDetail {
   situation: { down_distance: string | null; possession: string | null } | null;
   tv: string[]; picks: LivePick[];
 }
+
+export interface StatColumn { key: string; label: string; desc: string }
+export interface StatPlayerRow { id: string; name: string; pos: string | null; team: string; age: number | null; headshot: string | null; v: (number | null)[] }
+export interface PlayerStatsResponse {
+  sport: string; season: number; seasons: { year: number; label: string }[]; view: string; views: { id: string; label: string }[];
+  columns: StatColumn[]; rows: StatPlayerRow[]; sort: string; qualified: boolean; count: number | null;
+}
+export interface TeamStatColumn extends StatColumn { lower: boolean; ranks: { [abbr: string]: number } }
+export interface TeamStatsResponse {
+  sport: string; season: number; seasons: { year: number; label: string }[];
+  views: { id: string; label: string; columns: TeamStatColumn[] }[];
+  teams: { abbr: string; name: string; logo: string | null; v: { [key: string]: number } }[];
+}
+export interface PlayerDetail {
+  sport: string; id: string;
+  profile: { name: string | null; team: string | null; team_name: string | null; pos: string | null; jersey: string | null; age: number | null; height: string | null; weight: string | null; experience: string | null; draft: string | null; birthplace: string | null; headshot: string | null; status: string | null };
+  labels: string[]; groups: { name: string; start: number; end: number }[];
+  games: { id: string; date: string; week: number | null; home: boolean; opp: string; result: string | null; score: string | null; stats: string[] }[];
+  summary: { labels: string[]; descs: string[]; splits: { label: string; stats: string[] }[] };
+}

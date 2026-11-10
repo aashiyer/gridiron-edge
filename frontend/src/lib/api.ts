@@ -7,7 +7,7 @@ import type {
   ExportSlide,
   RecordsResponse,
   WeeksResponse,
-  GameDetail, NbaEspn, ModelStats, LeagueStats, Recap, TalkPost, LiveScoreboard, LiveGameDetail,
+  GameDetail, NbaEspn, ModelStats, LeagueStats, Recap, TalkPost, LiveScoreboard, LiveGameDetail, PlayerStatsResponse, TeamStatsResponse, PlayerDetail,
   TeamMeta,
   VsModelSummary,
   StandingsResponse,
@@ -178,6 +178,16 @@ export const api = {
     return req<LiveScoreboard>(`/live/scoreboard?${qs.toString()}`);
   },
   liveGame: (gameId: string, since?: number) => req<LiveGameDetail>(`/live/game/${gameId}${since !== undefined ? `?since=${since}` : ""}`),
+  statsPlayers: (params: { view?: string; season?: number; qualified?: boolean }) => {
+    const qs = new URLSearchParams({ sport: activeSport });
+    if (params.view) qs.set("view", params.view);
+    if (params.season) qs.set("season", String(params.season));
+    if (params.qualified !== undefined) qs.set("qualified", String(params.qualified));
+    return req<PlayerStatsResponse>(`/stats/players?${qs.toString()}`);
+  },
+  statsTeams: (params: { season?: number }) =>
+    req<TeamStatsResponse>(`/stats/teams?sport=${activeSport}${params.season ? `&season=${params.season}` : ""}`),
+  statsPlayer: (id: string, sport: Sport) => req<PlayerDetail>(`/stats/player/${id}?sport=${sport}`),
   league: (season?: number) =>
     req<LeagueStats>(`/insights/league?sport=${activeSport}${season ? `&season=${season}` : ""}`),
   recap: (season: number, week: number) => req<Recap>(`/insights/recap?season=${season}&week=${week}&sport=${activeSport}`),

@@ -9,7 +9,7 @@
          on iPhone/iPad. -->
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#4d6bfe" />
+    <meta name="theme-color" content="#0a0a0a" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Pick Six</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -21,6 +21,15 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem("gridiron_theme");
+          var light = t ? t === "light" : window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches;
+          if (light) document.documentElement.classList.add("light");
+        } catch (e) {}
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

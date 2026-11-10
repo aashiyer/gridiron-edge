@@ -9,6 +9,9 @@ import { RecordPage } from "./pages/Record";
 import { VsModelPage } from "./pages/VsModel";
 import { LeaguePage } from "./pages/League";
 import { LivePage } from "./pages/Live";
+import { StatsPage } from "./pages/Stats";
+import { StatsPlayerPage } from "./pages/StatsPlayer";
+import { StatsTeamPage } from "./pages/StatsTeam";
 import { LiveGamePage } from "./pages/LiveGame";
 import { LeaderboardPage } from "./pages/Leaderboard";
 import { PowerRankingsPage } from "./pages/PowerRankings";
@@ -41,6 +44,9 @@ export default function App() {
           <Route path="/games/:gameId" element={<ProtectedRoute><RedirectToLive /></ProtectedRoute>} />
           <Route path="/live" element={<ProtectedRoute><LivePage /></ProtectedRoute>} />
           <Route path="/live/:gameId" element={<ProtectedRoute><LiveGamePage /></ProtectedRoute>} />
+          <Route path="/stats" element={<ProtectedRoute><StatsPage /></ProtectedRoute>} />
+          <Route path="/stats/player/:sport/:id" element={<ProtectedRoute><StatsPlayerPage /></ProtectedRoute>} />
+          <Route path="/stats/team/:sport/:abbr" element={<ProtectedRoute><StatsTeamPage /></ProtectedRoute>} />
           <Route path="/league" element={<ProtectedRoute><LeaguePage /></ProtectedRoute>} />
           <Route path="/vs-model" element={<ProtectedRoute><VsModelPage /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />

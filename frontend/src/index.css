@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+/* Tighter, squarer geometry app-wide: Tailwind's rounded-* utilities read these. */
+@theme {
+  --radius-sm: 0.2rem;
+  --radius-md: 0.3rem;
+  --radius-lg: 0.375rem;
+  --radius-xl: 0.5rem;
+  --radius-2xl: 0.625rem;
+  --radius-3xl: 0.75rem;
+}
+
 /* Palette follows shadcn/ui's actual default theme tokens (neutral base,
    zero-chroma grays converted from their oklch values) with this app's blue
    kept as the accent/primary — the same "neutral base + a brand color"
@@ -18,7 +28,7 @@
    the card it lives in). */
 :root {
   color-scheme: dark;
-  --radius: 0.75rem;
+  --radius: 0.5rem;
 
   --bg: #0a0a0a;
   --card: #171717;
@@ -31,8 +41,11 @@
   --text-faint: #737373;
   --ring: #737373;
 
-  --accent: #4d6bfe;
-  --accent-text: #eef1ff;
+  /* The accent is ink, not a color: primary actions and selected states are
+     high-contrast neutral. A favorite-team theme (TeamAccentSync) can still
+     override these two variables with the team's color. */
+  --accent: #ececec;
+  --accent-text: #0a0a0a;
   --destructive: #f87171;
 }
 
@@ -49,8 +62,8 @@
   --text-faint: #9a9a9a;
   --ring: #a3a3a3;
 
-  --accent: #4d6bfe;
-  --accent-text: #ffffff;
+  --accent: #141414;
+  --accent-text: #fafafa;
   --destructive: #dc2626;
 }
 
@@ -63,7 +76,6 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: "Inter", -apple-system, "Segoe UI", Roboto, sans-serif;
-  transition: background-color 0.15s, color 0.15s;
 }
 
 h1,
@@ -79,38 +91,50 @@ h3,
    actually see where they are. */
 .input,
 select.input {
-  background: var(--surface);
+  background: transparent;
   border: 1px solid var(--input-border);
-  border-radius: calc(var(--radius) - 0.25rem);
-  padding: 0.5rem 0.75rem;
-  font-size: 0.875rem;
+  border-radius: 0.375rem;
+  padding: 0.4rem 0.65rem;
+  min-height: 2.1rem;
+  font-size: 0.8125rem;
   color: var(--text);
   outline: none;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color 0.12s;
 }
 .input:hover {
   border-color: var(--ring);
 }
 .input:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+  border-color: var(--text);
 }
 .input::placeholder {
   color: var(--text-faint);
 }
+select.input {
+  background: var(--card);
+}
 
-/* Visible keyboard-focus ring on everything else (buttons, links, cards
-   used as buttons) that doesn't go through .input — shadcn applies a
-   focus-visible ring globally; this is the same idea without needing a
-   utility class at every call site. Mouse clicks don't trigger
-   :focus-visible, so this never shows up as a stray outline on a click. */
+/* Keyboard focus: one crisp outline, no glow. */
 button:focus-visible,
 a:focus-visible,
-[role="button"]:focus-visible {
-  outline: 2px solid var(--accent);
+[role="button"]:focus-visible,
+[role="tab"]:focus-visible {
+  outline: 1px solid var(--text);
   outline-offset: 2px;
-  border-radius: calc(var(--radius) - 0.35rem);
+}
+
+/* No gradient fills anywhere: surfaces are flat. */
+[class*="bg-gradient-"] {
+  background-image: none !important;
+}
+
+/* Segmented-control buttons sit inside a rounded container; keep their radius one step tighter. */
+[role="tab"] {
+  border-radius: 0.3rem;
+}
+
+button {
+  letter-spacing: 0.005em;
 }
 
 ::-webkit-scrollbar {
@@ -129,4 +153,14 @@ a:focus-visible,
 .shadow-sm,
 .shadow-xs {
   box-shadow: none;
+}
+
+/* Section labels: small tracked sans caps instead of heavy display type. */
+h2.uppercase,
+h3.uppercase {
+  font-family: "Inter", -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: var(--text-faint);
 }

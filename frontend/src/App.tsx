@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./lib/AuthContext";
 import { Sidebar } from "./components/Sidebar";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -6,7 +6,6 @@ import { TeamAccentSync } from "./components/TeamAccentSync";
 import { Home } from "./pages/Home";
 import { Picker } from "./pages/Picker";
 import { RecordPage } from "./pages/Record";
-import { GamesPage } from "./pages/Games";
 import { GameDetailPage } from "./pages/GameDetail";
 import { VsModelPage } from "./pages/VsModel";
 import { LeaguePage } from "./pages/League";
@@ -34,7 +33,7 @@ export default function App() {
           <Route path="/leaderboard" element={<ProtectedRoute><LeaderboardPage /></ProtectedRoute>} />
           <Route path="/power-rankings" element={<ProtectedRoute><PowerRankingsPage /></ProtectedRoute>} />
           <Route path="/record" element={<ProtectedRoute><RecordPage /></ProtectedRoute>} />
-          <Route path="/games" element={<ProtectedRoute><GamesPage /></ProtectedRoute>} />
+          <Route path="/games" element={<Navigate to="/live" replace />} />
           <Route path="/games/:gameId" element={<ProtectedRoute><GameDetailPage /></ProtectedRoute>} />
           <Route path="/live" element={<ProtectedRoute><LivePage /></ProtectedRoute>} />
           <Route path="/live/:gameId" element={<ProtectedRoute><LiveGamePage /></ProtectedRoute>} />

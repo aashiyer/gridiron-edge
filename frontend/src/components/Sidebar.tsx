@@ -5,7 +5,7 @@ import { useAuth } from "../lib/AuthContext";
 import { useTheme } from "../lib/ThemeContext";
 import { useSport } from "../lib/SportContext";
 import { NFL_ONLY_PATHS, SportToggle } from "./SportToggle";
-import { HomeIcon, TargetIcon, ChartIcon, ScaleIcon, CalendarIcon, TrophyIcon, PersonIcon, SunIcon, MoonIcon, LogoMark, RankIcon, MoreIcon, ShieldIcon, LiveIcon } from "./icons";
+import { HomeIcon, TargetIcon, ChartIcon, ScaleIcon, TrophyIcon, PersonIcon, SunIcon, MoonIcon, LogoMark, RankIcon, MoreIcon, ShieldIcon, LiveIcon } from "./icons";
 
 const baseTabs = [
   { to: "/", label: "Home", icon: HomeIcon, end: true },
@@ -16,7 +16,6 @@ const baseTabs = [
   { to: "/record", label: "Record", icon: ChartIcon },
   { to: "/league", label: "League", icon: TrophyIcon },
   { to: "/vs-model", label: "Model", icon: ScaleIcon },
-  { to: "/games", label: "Games", icon: CalendarIcon },
 ];
 
 const ADMIN_TAB = { to: "/admin/users", label: "Users", icon: ShieldIcon, end: false };

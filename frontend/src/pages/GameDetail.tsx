@@ -284,7 +284,7 @@ function BackLink() {
   const canGoBack = typeof window !== "undefined" && (window.history.state?.idx ?? 0) > 0;
   return (
     <button
-      onClick={() => (canGoBack ? navigate(-1) : navigate("/games"))}
+      onClick={() => (canGoBack ? navigate(-1) : navigate("/live"))}
       className="text-sm font-medium text-[var(--text-muted)] hover:text-[var(--text)] transition-colors inline-flex items-center gap-1"
     >
       ← Back

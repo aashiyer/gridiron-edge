@@ -7,7 +7,7 @@ import type {
   ExportSlide,
   RecordsResponse,
   WeeksResponse,
-  GameDetail, NbaEspn, ModelStats, LeagueStats, Recap, TalkPost,
+  GameDetail, NbaEspn, ModelStats, LeagueStats, Recap, TalkPost, LiveScoreboard, LiveGameDetail,
   TeamMeta,
   VsModelSummary,
   StandingsResponse,
@@ -171,6 +171,13 @@ export const api = {
 
   dashboard: (params: { season?: number } = {}) =>
     req<DashboardSummary>(`/dashboard?sport=${activeSport}${params.season ? `&season=${params.season}` : ""}`),
+  liveScoreboard: (params: { date?: string; week?: number }) => {
+    const qs = new URLSearchParams({ sport: activeSport });
+    if (params.date) qs.set("date", params.date);
+    if (params.week) qs.set("week", String(params.week));
+    return req<LiveScoreboard>(`/live/scoreboard?${qs.toString()}`);
+  },
+  liveGame: (gameId: string, since?: number) => req<LiveGameDetail>(`/live/game/${gameId}${since !== undefined ? `?since=${since}` : ""}`),
   league: (season?: number) =>
     req<LeagueStats>(`/insights/league?sport=${activeSport}${season ? `&season=${season}` : ""}`),
   recap: (season: number, week: number) => req<Recap>(`/insights/recap?season=${season}&week=${week}&sport=${activeSport}`),

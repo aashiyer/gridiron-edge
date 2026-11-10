@@ -568,3 +568,33 @@ export interface TalkPost {
   id: number; user_id: number; body: string; season: number | null; week: number | null; created_at: string;
   display_name: string; avatar_version: number; reactions: { [emoji: string]: number[] };
 }
+
+export interface LiveSide { abbr: string; score: number | null; record: string | null; winner: boolean }
+export interface LivePick {
+  user_id: number; name: string; avatar_version: number; market: string; selection: string; line: number | null;
+  status: "win" | "loss" | "push" | "pending" | "winning" | "losing" | "tied"; side: string;
+}
+export interface LiveGameSummary {
+  event_id: string; game_id: string; start: string; state: "pre" | "in" | "post"; detail: string | null; clock: string | null; period: number | null;
+  home: LiveSide; away: LiveSide;
+  situation: { down_distance: string | null; possession: string | null; red_zone: boolean; last_play: string | null } | null;
+  odds: { details: string | null; over_under: number | null; spread: number | null } | null;
+  tv: string[]; venue: string | null; picks: LivePick[];
+}
+export interface LiveScoreboard { sport: string; date: string | null; week: number | null; season: number | null; games: LiveGameSummary[]; live: boolean }
+export interface LivePlay {
+  id: string; seq: number; period: number | null; clock: string | null; text: string; type: string | null; team: string | null;
+  away: number | null; home: number | null; scoring: boolean; drive: number | null; dd: string | null;
+}
+export interface LiveGameDetail {
+  game_id: string; event_id: string; sport: string; state: "pre" | "in" | "post"; detail: string | null; clock: string | null; period: number | null;
+  home: LiveSide | null; away: LiveSide | null; plays: LivePlay[]; incremental?: boolean;
+  drives: { id: number; team: string | null; desc: string | null; result: string | null; plays: number }[];
+  winprob: number[];
+  scoring: { period: number | null; clock: string | null; text: string; away: number | null; home: number | null; team: string | null; type: string | null }[];
+  team_stats: { label: string; away: string; home: string }[];
+  leaders: { [abbr: string]: (EspnPlayer & { category: string; value: string })[] };
+  box: NbaEspn["box"];
+  situation: { down_distance: string | null; possession: string | null } | null;
+  tv: string[]; picks: LivePick[];
+}

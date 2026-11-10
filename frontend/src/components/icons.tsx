@@ -163,3 +163,12 @@ export function ShieldIcon({ className }: IconProps) {
     </svg>
   );
 }
+
+export function LiveIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 20 20" fill={base} className={className}>
+      <circle cx="10" cy="10" r="2.2" fill="currentColor" />
+      <path d="M5.5 5.5a6.4 6.4 0 000 9M14.5 5.5a6.4 6.4 0 010 9M3 3.2a9.6 9.6 0 000 13.6M17 3.2a9.6 9.6 0 010 13.6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}

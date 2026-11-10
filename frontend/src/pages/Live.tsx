@@ -209,7 +209,6 @@ export function LivePage() {
           </div>
         </section>
       ))}
-      <p className="text-[11px] text-[var(--text-faint)]">Scores come from ESPN and can run 10 to 30 seconds behind the broadcast. They refresh on their own while games are live.</p>
     </div>
   );
 }

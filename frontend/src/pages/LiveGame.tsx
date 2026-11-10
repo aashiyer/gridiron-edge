@@ -348,7 +348,6 @@ export function LiveGamePage() {
             </section>
           );
         })}
-      <p className="text-[11px] text-[var(--text-faint)]">Data from ESPN, usually 20 to 60 seconds behind the broadcast.{live ? " Refreshing every few seconds." : ""}</p>
     </div>
   );
 }
